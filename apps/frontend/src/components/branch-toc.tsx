@@ -6,15 +6,17 @@ import type { Locale } from '@/lib/locale';
 interface BranchTOCProps {
   locale: Locale;
   hasTour3d: boolean;
+  /** Filial sahifasida shifokorlar bo‘limi bo‘lsa */
+  includeDoctors?: boolean;
 }
 
-export default function BranchTOC({ locale, hasTour3d }: BranchTOCProps) {
+export default function BranchTOC({ locale, hasTour3d, includeDoctors = true }: BranchTOCProps) {
   // Build TOC sections consistently - use hasTour3d prop directly
   // Since this is a client component, hasTour3d prop is already available from server
   // No need for mounted state - just use the prop directly
   const baseSections = [
     { id: 'services', label: locale === 'ru' ? 'Услуги' : 'Xizmatlar' },
-    { id: 'doctors', label: locale === 'ru' ? 'Врачи' : 'Shifokorlar' },
+    ...(includeDoctors ? [{ id: 'doctors', label: locale === 'ru' ? 'Врачи' : 'Shifokorlar' }] : []),
   ];
   
   const tour3dSection = { id: 'tour3d', label: locale === 'ru' ? '3D Тур' : '3D Tour' };

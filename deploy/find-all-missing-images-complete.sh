@@ -14,10 +14,10 @@ PGPASSWORD='Acoustic##4114' psql -h localhost -p 5432 -U acoustic_user -d acoust
         for dir in \
             "/var/www/acoustic.uz/apps/backend/uploads" \
             "/var/www/acoustic.uz/apps/backend/apps/backend/uploads" \
-            "/root/acoustic.uz/apps/backend/uploads" \
-            "/root/acoustic.uz/apps/backend/apps/backend/uploads" \
+            "/var/www/acoustic.uz/apps/backend/uploads" \
+            "/var/www/acoustic.uz/apps/backend/apps/backend/uploads" \
             "/var/www/acoustic.uz/uploads" \
-            "/root/acoustic.uz/uploads" \
+            "/var/www/acoustic.uz/uploads" \
             "/var/www/acoustic.uz.backup.20260123_231125/apps/backend/uploads" \
             "/var/www/acoustic.uz.backup.20260123_231125/apps/backend/apps/backend/uploads"; do
             if [ -f "$dir/$filename" ] 2>/dev/null; then

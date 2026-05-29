@@ -1,6 +1,45 @@
 import { z } from 'zod';
 import { bilingualTextSchema } from './common';
 
+/** Admin formadan keladigan bo'sh stringlarni null ga aylantiradi */
+function emptyToNull(val: unknown): unknown {
+  if (val === '' || val === undefined) return null;
+  return val;
+}
+
+/** Narx va boshqa raqam maydonlar — string "1 500 000" ham qabul qilinadi */
+function coerceOptionalNumber(val: unknown): unknown {
+  if (val === '' || val === null || val === undefined) return null;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  const n = Number(String(val).replace(/\s/g, '').replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function filterCuidArray(val: unknown): string[] {
+  if (!Array.isArray(val)) return [];
+  return val.filter((id): id is string => typeof id === 'string' && id.length > 10);
+}
+
+const optionalCuid = z.preprocess(
+  emptyToNull,
+  z.union([z.string().cuid(), z.null()]).optional(),
+);
+
+const optionalPositiveNumber = z.preprocess(
+  coerceOptionalNumber,
+  z.union([z.number().positive(), z.null()]).optional(),
+);
+
+const optionalNonNegativeInt = z.preprocess(
+  coerceOptionalNumber,
+  z.union([z.number().int().min(0), z.null()]).optional(),
+);
+
+const cuidArray = z.preprocess(
+  filterCuidArray,
+  z.array(z.string().cuid()).default([]),
+);
+
 export const bannerSchema = z.object({
   title_uz: z.string().min(1),
   title_ru: z.string().min(1),
@@ -31,7 +70,7 @@ export const bannerSchema = z.object({
     )
     .or(z.literal('').optional())
     .nullable(),
-  imageId: z.string().cuid().optional().nullable(),
+  imageId: optionalCuid,
   order: z.number().int().default(0),
   status: z.enum(['published', 'draft', 'archived']).default('published'),
 });
@@ -44,9 +83,9 @@ export const serviceSchema = z.object({
   body_uz: z.string().optional(),
   body_ru: z.string().optional(),
   slug: z.string().min(1),
-  coverId: z.string().cuid().optional().nullable(),
-  alternativeCoverId: z.string().cuid().optional().nullable(),
-  categoryId: z.string().cuid().optional().nullable(),
+  coverId: optionalCuid,
+  alternativeCoverId: optionalCuid,
+  categoryId: optionalCuid,
   order: z.number().int().default(0),
   status: z.enum(['published', 'draft', 'archived']).default('published'),
 });
@@ -54,21 +93,9 @@ export const serviceSchema = z.object({
 export const brandSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
-  logoId: z.string().cuid().optional().nullable(),
+  logoId: optionalCuid,
   desc_uz: z.string().optional(),
   desc_ru: z.string().optional(),
-});
-
-export const productCategorySchema = z.object({
-  name_uz: z.string().min(1),
-  name_ru: z.string().min(1),
-  slug: z.string().min(1),
-  description_uz: z.string().optional(),
-  description_ru: z.string().optional(),
-  icon: z.string().optional(),
-  imageId: z.string().cuid().optional().nullable(),
-  parentId: z.string().cuid().optional().nullable(),
-  order: z.number().int().default(0),
 });
 
 export const productSchema = z.object({
@@ -78,11 +105,10 @@ export const productSchema = z.object({
   productType: z.enum(['hearing-aids', 'accessories', 'interacoustics']).optional().nullable(),
   description_uz: z.string().optional(),
   description_ru: z.string().optional(),
-  price: z.number().positive().optional().nullable(),
-  stock: z.number().int().min(0).optional().nullable(),
-  brandId: z.string().cuid().optional().nullable(),
-  categoryId: z.string().cuid().optional().nullable(),
-  catalogIds: z.array(z.string().cuid()).default([]),
+  price: optionalPositiveNumber,
+  stock: optionalNonNegativeInt,
+  brandId: optionalCuid,
+  catalogIds: cuidArray,
   specsText: z.string().optional().nullable(),
   galleryIds: z.array(z.string()).default([]),
   audience: z.array(z.string()).default([]),
@@ -107,8 +133,13 @@ export const productSchema = z.object({
   regulatoryNote_uz: z.string().optional().nullable(),
   regulatoryNote_ru: z.string().optional().nullable(),
   galleryUrls: z.array(z.string()).default([]),
-  relatedProductIds: z.array(z.string().cuid()).default([]),
+  relatedProductIds: cuidArray,
   usefulArticleSlugs: z.array(z.string()).default([]),
+  discountPercent: z.preprocess(
+    coerceOptionalNumber,
+    z.union([z.number().int().min(0).max(99), z.null()]).optional(),
+  ),
+  originalPrice: optionalPositiveNumber,
   status: z.enum(['published', 'draft', 'archived']).default('published'),
 });
 
@@ -120,7 +151,11 @@ export const postSchema = z.object({
   slug: z.string().min(1),
   excerpt_uz: z.string().optional(),
   excerpt_ru: z.string().optional(),
-  coverId: z.string().cuid().optional().nullable(),
+  coverId: optionalCuid,
+  postType: z.enum(['article', 'news']).optional(),
+  categoryId: optionalCuid,
+  authorId: optionalCuid,
+  createdByUserId: optionalCuid,
   tags: z.array(z.string()).default([]),
   status: z.enum(['published', 'draft', 'archived']).default('published'),
   publishAt: z.coerce.date().optional(),
@@ -162,6 +197,20 @@ export const leadSchema = z.object({
   source: z.string().optional(),
   message: z.string().optional(),
   productId: z.string().cuid().optional().nullable(),
+  utmParams: z.record(z.string()).optional().nullable(),
+});
+
+export const createReviewSchema = z.object({
+  name: z.string().min(1).max(200),
+  rating: z.number().int().min(1).max(5),
+  body: z.string().min(3).max(8000),
+});
+
+export const updateReviewSchema = z.object({
+  status: z.enum(['pending', 'published', 'rejected']).optional(),
+  name: z.string().min(1).max(200).optional(),
+  rating: z.number().int().min(1).max(5).optional(),
+  body: z.string().min(3).max(8000).optional(),
 });
 
 export const pageSchema = z.object({
@@ -231,6 +280,8 @@ export const doctorSchema = z.object({
   description_ru: z.string().optional().nullable(),
   slug: z.string().min(1),
   imageId: z.string().cuid().optional().nullable(),
+  branchIds: z.array(z.string()).default([]),
+  patientTypes: z.array(z.string()).default([]),
   order: z.number().int().default(0),
   status: z.enum(['published', 'draft', 'archived']).default('published'),
 });

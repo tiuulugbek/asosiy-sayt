@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   Button,
@@ -17,6 +18,13 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { UploadOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
+import ListTable from '../components/common/ListTable';
+import { useTableLoading } from '../hooks/useTableLoading';
+import TableActions from '../components/common/TableActions';
+import StatusTag from '../components/common/StatusTag';
+import ModernTabs from '../components/common/ModernTabs';
 import dayjs from 'dayjs';
 import {
   useQuery,
@@ -68,6 +76,8 @@ interface SectionPostsPageProps {
 }
 
 export default function SectionPostsPage({ section, sectionName }: SectionPostsPageProps) {
+  const navigate = useNavigate();
+  const basePath = section === 'children' ? '/children-hearing' : '/patients';
   const queryClient = useQueryClient();
   const [form] = Form.useForm();
   const [categoryForm] = Form.useForm();
@@ -78,12 +88,20 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
   const [uploadingCover, setUploadingCover] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [coverModalOpen, setCoverModalOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [categoryImageModalOpen, setCategoryImageModalOpen] = useState(false);
   const [uploadingCategoryImage, setUploadingCategoryImage] = useState(false);
   const [categoryImagePreview, setCategoryImagePreview] = useState<string | null>(null);
 
   // Fetch categories for this section
-  const { data: categories } = useQuery<PostCategoryDto[], ApiError>({
+  const {
+    data: categories,
+    isLoading: categoriesLoading,
+    isFetching: categoriesFetching,
+    isPending: categoriesPending,
+  } = useQuery<PostCategoryDto[], ApiError>({
     queryKey: ['post-categories', section],
     queryFn: () => getPostCategories(section),
     retry: false,
@@ -93,7 +111,7 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
 
   // Fetch posts ONLY from categories in this section
   // Each section shows only posts that belong to its own categories
-  const { data, isLoading } = useQuery<PostDto[], ApiError>({
+  const { data, isLoading, isFetching, isPending } = useQuery<PostDto[], ApiError>({
     queryKey: ['posts', section],
     queryFn: async () => {
       const allPosts = await getPosts();
@@ -108,6 +126,11 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
     },
     enabled: categoryIds.length > 0, // Only enabled if there are categories
     retry: false,
+  });
+  const tableLoading = useTableLoading({
+    isLoading: categoriesLoading || (categoryIds.length > 0 && isLoading),
+    isFetching: categoriesFetching || isFetching,
+    isPending: categoriesPending || (categoryIds.length > 0 && isPending),
   });
 
   const { data: doctors } = useQuery<DoctorDto[], ApiError>({
@@ -409,15 +432,7 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
       title: 'Holat',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => {
-        const statusMap: Record<string, { label: string; color: string }> = {
-          published: { label: 'Nashr etilgan', color: 'green' },
-          draft: { label: 'Qoralama', color: 'orange' },
-          archived: { label: 'Arxiv', color: 'default' },
-        };
-        const statusInfo = statusMap[status] || { label: status, color: 'default' };
-        return <Tag color={statusInfo.color}>{statusInfo.label}</Tag>;
-      },
+      render: (status: string) => <StatusTag status={status} />,
     },
     {
       title: 'Rasm',
@@ -430,23 +445,10 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
     {
       title: 'Amallar',
       key: 'actions',
-      render: (_: any, record: PostCategoryDto) => (
-        <Space>
-          <Button size="small" onClick={() => openEditCategoryModal(record)}>
-            Tahrirlash
-          </Button>
-          <Popconfirm
-            title="Kategoriyani o'chirish"
-            description="Ushbu kategoriyani o'chirishni xohlaysizmi? Bu unga bog'liq maqolalarni ham o'chirmaydi, faqat kategoriyani olib tashlaydi."
-            onConfirm={() => handleDeleteCategory(record)}
-            okText="Ha"
-            cancelText="Yo'q"
-          >
-            <Button size="small" danger loading={isDeletingCategory}>
-              O'chirish
-            </Button>
-          </Popconfirm>
-        </Space>
+      width: 100,
+      fixed: 'right' as const,
+      render: (_: unknown, record: PostCategoryDto) => (
+        <TableActions onEdit={() => openEditCategoryModal(record)} onDelete={() => handleDeleteCategory(record)} loading={isDeletingCategory} />
       ),
     },
   ];
@@ -473,15 +475,7 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
       title: 'Holat',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => {
-        const statusMap: Record<string, { label: string; color: string }> = {
-          published: { label: 'Nashr etilgan', color: 'green' },
-          draft: { label: 'Qoralama', color: 'orange' },
-          archived: { label: 'Arxiv', color: 'default' },
-        };
-        const statusInfo = statusMap[status] || { label: status, color: 'default' };
-        return <Tag color={statusInfo.color}>{statusInfo.label}</Tag>;
-      },
+      render: (status: string) => <StatusTag status={status} />,
     },
     {
       title: 'Sana',
@@ -492,23 +486,10 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
     {
       title: 'Amallar',
       key: 'actions',
-      render: (_: any, record: PostDto) => (
-        <Space>
-          <Button size="small" onClick={() => openEditModal(record)}>
-            Tahrirlash
-          </Button>
-          <Popconfirm
-            title="Maqolani o'chirish"
-            description="Ushbu maqolani o'chirishni xohlaysizmi?"
-            onConfirm={() => handleDelete(record)}
-            okText="Ha"
-            cancelText="Yo'q"
-          >
-            <Button size="small" danger loading={isDeleting}>
-              O'chirish
-            </Button>
-          </Popconfirm>
-        </Space>
+      width: 100,
+      fixed: 'right' as const,
+      render: (_: unknown, record: PostDto) => (
+        <TableActions onEdit={() => navigate(`${basePath}/${record.id}/edit`)} onDelete={() => handleDelete(record)} loading={isDeleting} />
       ),
     },
   ];
@@ -524,7 +505,7 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
             <Button 
               type="primary" 
               icon={<PlusOutlined />} 
-              onClick={openCreateModal}
+              onClick={() => navigate(`${basePath}/new`)}
               disabled={categoryOptions.length === 0}
             >
               Yangi maqola
@@ -537,13 +518,17 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
               </p>
             </div>
           )}
-          <Table
-            columns={columns}
-            dataSource={data || []}
-            loading={isLoading}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
-          />
+          <FilterPanel onClear={() => { setSearchText(''); setStatusFilter(undefined); setCategoryFilter(undefined); }}>
+            <Input placeholder="Sarlavha..." value={searchText} onChange={(e) => setSearchText(e.target.value)} allowClear size="large" className="min-w-[200px] flex-1" />
+            <Select placeholder="Kategoriya" allowClear value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} className="min-w-[160px]" />
+            <Select placeholder="Holat" allowClear value={statusFilter} onChange={setStatusFilter} options={statusOptions} className="min-w-[140px]" />
+          </FilterPanel>
+          <ListTable columns={columns} dataSource={(data ?? []).filter((p) => {
+            if (statusFilter && p.status !== statusFilter) return false;
+            if (categoryFilter && (p as PostDto & { categoryId?: string }).categoryId !== categoryFilter) return false;
+            if (!searchText.trim()) return true;
+            return p.title_uz.toLowerCase().includes(searchText.toLowerCase());
+          })} loading={tableLoading} />
         </>
       ),
     },
@@ -558,22 +543,21 @@ export default function SectionPostsPage({ section, sectionName }: SectionPostsP
               Yangi kategoriya
             </Button>
           </div>
-          <Table
-            columns={categoryColumns}
-            dataSource={categories || []}
-            loading={false}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
-          />
+          <ListTable columns={categoryColumns} dataSource={categories || []} loading={false} />
         </>
       ),
     },
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
-      <h1 style={{ marginBottom: '24px' }}>{sectionName.uz} bo'limi</h1>
-      <Tabs defaultActiveKey="posts" items={tabItems} />
+    <div>
+      <PageHeader
+        title={sectionName.uz}
+        description={`${sectionName.uz} bo'limi maqolalari va kategoriyalari`}
+        count={(data ?? []).length}
+        loading={tableLoading}
+      />
+      <ModernTabs defaultActiveKey="posts" items={tabItems} />
 
       {/* Post Modal */}
       <Modal

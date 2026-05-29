@@ -21,6 +21,11 @@ import {
   Tooltip,
 } from 'antd';
 import { UploadOutlined, DeleteOutlined, FolderOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import ModernTabs from '../components/common/ModernTabs';
+import ListTable from '../components/common/ListTable';
+import TableActions from '../components/common/TableActions';
+import StatusTag from '../components/common/StatusTag';
 import type { TabsProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd';
@@ -140,47 +145,39 @@ function HomepageServicesTab() {
         title: 'Holati',
         dataIndex: 'status',
         key: 'status',
-        render: (value: HomepageServiceDto['status']) => {
-          const color = value === 'published' ? 'green' : value === 'draft' ? 'orange' : 'default';
-          return <Tag color={color}>{value}</Tag>;
-        },
+        render: (value: HomepageServiceDto['status']) => <StatusTag status={value} />,
       },
       {
         title: 'Tartib',
         dataIndex: 'order',
         key: 'order',
+        responsive: ['md'],
       },
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right',
         render: (_: unknown, record: HomepageServiceDto) => (
-          <Space>
-            <Button
-              size="small"
-              onClick={() => {
-                setEditingService(record);
-                form.setFieldsValue({
-                  title_uz: record.title_uz,
-                  title_ru: record.title_ru,
-                  excerpt_uz: record.excerpt_uz,
-                  excerpt_ru: record.excerpt_ru,
-                  link: record.slug ? (record.slug.startsWith('/') ? record.slug : `/${record.slug}`) : undefined,
-                  status: record.status,
-                  order: record.order,
-                  imageId: record.image?.id,
-                });
-                setPreviewImage(record.image?.url ? normalizeImageUrl(record.image.url) : null);
-                setIsModalOpen(true);
-              }}
-            >
-              Tahrirlash
-            </Button>
-            <Popconfirm title="Xizmatni o'chirish" description="Haqiqatan ham o'chirilsinmi?" onConfirm={() => deleteMutation.mutate(record.id)} okText="Ha" cancelText="Yo'q">
-              <Button danger size="small" loading={deleteMutation.isPending}>
-                O'chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions
+            onEdit={() => {
+              setEditingService(record);
+              form.setFieldsValue({
+                title_uz: record.title_uz,
+                title_ru: record.title_ru,
+                excerpt_uz: record.excerpt_uz,
+                excerpt_ru: record.excerpt_ru,
+                link: record.slug ? (record.slug.startsWith('/') ? record.slug : `/${record.slug}`) : undefined,
+                status: record.status,
+                order: record.order,
+                imageId: record.image?.id,
+              });
+              setPreviewImage(record.image?.url ? normalizeImageUrl(record.image.url) : null);
+              setIsModalOpen(true);
+            }}
+            onDelete={() => deleteMutation.mutate(record.id)}
+            loading={deleteMutation.isPending}
+          />
         ),
       },
     ],
@@ -284,7 +281,7 @@ function HomepageServicesTab() {
           Yangi xizmat
         </Button>
       </Space>
-      <Table rowKey="id" loading={isLoading} dataSource={data ?? []} columns={columns} pagination={false} />
+      <ListTable rowKey="id" loading={isLoading} dataSource={data ?? []} columns={columns} pagination={false} />
 
       <Modal title={editingService ? 'Xizmatni tahrirlash' : 'Yangi xizmat'} open={isModalOpen} onCancel={() => setIsModalOpen(false)} onOk={handleSubmit} confirmLoading={createMutation.isPending || updateMutation.isPending} okText="Saqlash" cancelText="Bekor qilish" width={800}>
         <Form layout="vertical" form={form}>
@@ -560,54 +557,40 @@ function HomepageProductsTab() {
         title: 'Holati',
         dataIndex: 'status',
         key: 'status',
-        render: (value: HomepageHearingAidDto['status']) => {
-          const color = value === 'published' ? 'green' : value === 'draft' ? 'orange' : 'default';
-          return <Tag color={color}>{value}</Tag>;
-        },
+        render: (value: HomepageHearingAidDto['status']) => <StatusTag status={value} />,
       },
       {
         title: 'Tartib',
         dataIndex: 'order',
         key: 'order',
         width: 80,
+        responsive: ['md'],
       },
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right',
         render: (_: unknown, record: HomepageHearingAidDto) => (
-          <Space>
-            <Button
-              size="small"
-              onClick={() => {
-                setEditingItem(record);
-                form.setFieldsValue({
-                  title_uz: record.title_uz,
-                  title_ru: record.title_ru,
-                  description_uz: record.description_uz ?? undefined,
-                  description_ru: record.description_ru ?? undefined,
-                  link: record.link ?? undefined,
-                  imageId: record.image?.id ?? undefined,
-                  order: record.order ?? 0,
-                  status: record.status,
-                });
-                setPreviewImage(record.image?.url ? normalizeImageUrl(record.image.url) : null);
-                setIsModalOpen(true);
-              }}
-            >
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Mahsulotni o'chirish"
-              description="Haqiqatan ham o'chirilsinmi?"
-              onConfirm={() => deleteMutation.mutate(record.id)}
-              okText="Ha"
-              cancelText="Yo'q"
-            >
-              <Button danger size="small" loading={deleteMutation.isPending}>
-                O'chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions
+            onEdit={() => {
+              setEditingItem(record);
+              form.setFieldsValue({
+                title_uz: record.title_uz,
+                title_ru: record.title_ru,
+                description_uz: record.description_uz ?? undefined,
+                description_ru: record.description_ru ?? undefined,
+                link: record.link ?? undefined,
+                imageId: record.image?.id ?? undefined,
+                order: record.order ?? 0,
+                status: record.status,
+              });
+              setPreviewImage(record.image?.url ? normalizeImageUrl(record.image.url) : null);
+              setIsModalOpen(true);
+            }}
+            onDelete={() => deleteMutation.mutate(record.id)}
+            loading={deleteMutation.isPending}
+          />
         ),
       },
     ],
@@ -721,13 +704,7 @@ function HomepageProductsTab() {
           Yangi mahsulot qo'shish
         </Button>
       </Space>
-      <Table
-        rowKey="id"
-        loading={isLoading}
-        dataSource={items}
-        columns={columns}
-        pagination={false}
-      />
+      <ListTable rowKey="id" loading={isLoading} dataSource={items} columns={columns} pagination={false} />
 
       <Modal
         title={editingItem ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot qo\'shish'}
@@ -1039,50 +1016,42 @@ function CatalogsTab() {
         title: 'Holati',
         dataIndex: 'status',
         key: 'status',
-        render: (value: CatalogDto['status']) => {
-          const color = value === 'published' ? 'green' : value === 'draft' ? 'orange' : 'default';
-          return <Tag color={color}>{value}</Tag>;
-        },
+        render: (value: CatalogDto['status']) => <StatusTag status={value} />,
       },
       {
         title: 'Tartib',
         dataIndex: 'order',
         key: 'order',
         width: 80,
+        responsive: ['md'],
       },
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right',
         render: (_: unknown, record: CatalogDto) => (
-          <Space>
-            <Button
-              size="small"
-              onClick={() => {
-                setEditingCatalog(record);
-                form.setFieldsValue({
-                  name_uz: record.name_uz,
-                  name_ru: record.name_ru,
-                  slug: record.slug,
-                  description_uz: record.description_uz ?? undefined,
-                  description_ru: record.description_ru ?? undefined,
-                  icon: record.icon,
-                  imageId: record.image?.id ?? undefined,
-                  order: record.order ?? 0,
-                  status: record.status,
-                  showOnHomepage: record.showOnHomepage,
-                });
-                setPreviewImage(record.image?.url ? normalizeImageUrl(record.image.url) : null);
-                setIsModalOpen(true);
-              }}
-            >
-              Tahrirlash
-            </Button>
-            <Popconfirm title="Katalogni o'chirish" description="Haqiqatan ham o'chirilsinmi?" onConfirm={() => deleteMutation.mutate(record.id)} okText="Ha" cancelText="Yo'q">
-              <Button danger size="small" loading={deleteMutation.isPending}>
-                O'chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions
+            onEdit={() => {
+              setEditingCatalog(record);
+              form.setFieldsValue({
+                name_uz: record.name_uz,
+                name_ru: record.name_ru,
+                slug: record.slug,
+                description_uz: record.description_uz ?? undefined,
+                description_ru: record.description_ru ?? undefined,
+                icon: record.icon,
+                imageId: record.image?.id ?? undefined,
+                order: record.order ?? 0,
+                status: record.status,
+                showOnHomepage: record.showOnHomepage,
+              });
+              setPreviewImage(record.image?.url ? normalizeImageUrl(record.image.url) : null);
+              setIsModalOpen(true);
+            }}
+            onDelete={() => deleteMutation.mutate(record.id)}
+            loading={deleteMutation.isPending}
+          />
         ),
       },
     ],
@@ -1192,7 +1161,7 @@ function CatalogsTab() {
           Yangi katalog
         </Button>
       </Space>
-      <Table rowKey="id" loading={isLoading} dataSource={catalogs} columns={columns} pagination={false} />
+      <ListTable rowKey="id" loading={isLoading} dataSource={catalogs} columns={columns} pagination={false} />
 
       <Modal title={editingCatalog ? 'Katalogni tahrirlash' : 'Yangi katalog'} open={isModalOpen} onCancel={() => setIsModalOpen(false)} onOk={handleSubmit} confirmLoading={createMutation.isPending || updateMutation.isPending} okText="Saqlash" cancelText="Bekor qilish" width={800}>
         <Form layout="vertical" form={form}>
@@ -1742,44 +1711,36 @@ function FAQsTab() {
         title: 'Holati',
         dataIndex: 'status',
         key: 'status',
-        render: (value: FaqDto['status']) => {
-          const color = value === 'published' ? 'green' : value === 'draft' ? 'orange' : 'default';
-          return <Tag color={color}>{value}</Tag>;
-        },
+        render: (value: FaqDto['status']) => <StatusTag status={value} />,
       },
       {
         title: 'Tartib',
         dataIndex: 'order',
         key: 'order',
+        responsive: ['md'],
       },
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right',
         render: (_: unknown, record: FaqDto) => (
-          <Space>
-            <Button
-              size="small"
-              onClick={() => {
-                setEditingFaq(record);
-                form.setFieldsValue({
-                  question_uz: record.question_uz,
-                  question_ru: record.question_ru,
-                  answer_uz: record.answer_uz,
-                  answer_ru: record.answer_ru,
-                  status: record.status,
-                  order: record.order,
-                });
-                setIsModalOpen(true);
-              }}
-            >
-              Tahrirlash
-            </Button>
-            <Popconfirm title="Savol-javobni o'chirish" description="Haqiqatan ham o'chirilsinmi?" onConfirm={() => deleteMutation.mutate(record.id)} okText="Ha" cancelText="Yo'q">
-              <Button danger size="small" loading={deleteMutation.isPending}>
-                O'chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions
+            onEdit={() => {
+              setEditingFaq(record);
+              form.setFieldsValue({
+                question_uz: record.question_uz,
+                question_ru: record.question_ru,
+                answer_uz: record.answer_uz,
+                answer_ru: record.answer_ru,
+                status: record.status,
+                order: record.order,
+              });
+              setIsModalOpen(true);
+            }}
+            onDelete={() => deleteMutation.mutate(record.id)}
+            loading={deleteMutation.isPending}
+          />
         ),
       },
     ],
@@ -1825,7 +1786,7 @@ function FAQsTab() {
           Yangi savol-javob
         </Button>
       </Space>
-      <Table rowKey="id" loading={isLoading} dataSource={data ?? []} columns={columns} pagination={false} />
+      <ListTable rowKey="id" loading={isLoading} dataSource={data ?? []} columns={columns} pagination={false} />
 
       <Modal title={editingFaq ? 'Savol-javobni tahrirlash' : 'Yangi savol-javob'} open={isModalOpen} onCancel={() => setIsModalOpen(false)} onOk={handleSubmit} confirmLoading={createMutation.isPending || updateMutation.isPending} okText="Saqlash" cancelText="Bekor qilish" width={800}>
         <Form layout="vertical" form={form}>
@@ -1878,5 +1839,10 @@ export default function HomepagePage() {
     },
   ];
 
-  return <Tabs items={items} />;
+  return (
+    <div>
+      <PageHeader title="Bosh sahifa kontenti" description="Bosh sahifa bo'limlari va kontent" />
+      <ModernTabs items={items} />
+    </div>
+  );
 }

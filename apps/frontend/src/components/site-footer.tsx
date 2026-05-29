@@ -373,6 +373,26 @@ export default function SiteFooter({ initialLocale }: SiteFooterProps = {}) {
               ))}
             </ul>
           </div>
+
+          <div className="col-span-2 space-y-3 pt-2">
+            <h4 className="text-base font-semibold text-brand-accent" suppressHydrationWarning>
+              {displayLocale === 'ru' ? 'Контактная информация' : "Kontakt ma'lumotlari"}
+            </h4>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Phone size={16} className="text-brand-primary shrink-0" />
+                <Link href="tel:+998712021441" className="hover:text-brand-primary">
+                  +998 71 202 14 41
+                </Link>
+              </div>
+              <div className="flex items-center gap-2">
+                <Mail size={16} className="text-brand-primary shrink-0" />
+                <Link href="mailto:info@acoustic.uz" className="hover:text-brand-primary break-all">
+                  info@acoustic.uz
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

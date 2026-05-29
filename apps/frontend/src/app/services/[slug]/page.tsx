@@ -11,6 +11,7 @@ import ServiceTableOfContents from '@/components/service-table-of-contents';
 import PageHeader from '@/components/page-header';
 import AppointmentForm from '@/components/appointment-form';
 import Sidebar from '@/components/sidebar';
+import { resolveServiceSlug } from '@/lib/slug-aliases';
 
 // ISR: Revalidate every 5 minutes to ensure category and description updates are reflected quickly
 export const revalidate = 300;
@@ -25,9 +26,10 @@ interface ServicePageProps {
 
 export async function generateMetadata({ params }: ServicePageProps): Promise<Metadata> {
   const locale = detectLocale();
-  
+  const slug = resolveServiceSlug(params.slug);
+
   // Try to get category first
-  const category = await getServiceCategoryBySlug(params.slug, locale);
+  const category = await getServiceCategoryBySlug(slug, locale);
   if (category) {
     const title = getBilingualText(category.name_uz, category.name_ru, locale);
     const rawDescription = getBilingualText(category.description_uz, category.description_ru, locale);
@@ -38,7 +40,7 @@ export async function generateMetadata({ params }: ServicePageProps): Promise<Me
   }
   
   // Try to get service
-  const service = await getServiceBySlug(params.slug, locale);
+  const service = await getServiceBySlug(slug, locale);
   if (!service) {
     const fallbackTitle = optimizeTitle(
       locale === 'ru' ? 'Услуга' : 'Xizmat'
@@ -58,7 +60,7 @@ export async function generateMetadata({ params }: ServicePageProps): Promise<Me
   const optimizedTitle = optimizeTitle(title);
   const optimizedDescription = optimizeMetaDescription(rawDescription);
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://acoustic.uz';
-  const serviceUrl = `${baseUrl}/services/${params.slug}`;
+  const serviceUrl = `${baseUrl}/services/${slug}`;
   // Use alternative cover if available, otherwise use cover with higher quality variant
   let imageUrl = `${baseUrl}/logo.png`;
   
@@ -124,9 +126,10 @@ export async function generateMetadata({ params }: ServicePageProps): Promise<Me
 
 export default async function ServiceSlugPage({ params }: ServicePageProps) {
   const locale = detectLocale();
-  
+  const slug = resolveServiceSlug(params.slug);
+
   // First, try to get category by slug
-  const category = await getServiceCategoryBySlug(params.slug, locale);
+  const category = await getServiceCategoryBySlug(slug, locale);
   
   if (category) {
     // This is a category - show services within this category
@@ -258,7 +261,7 @@ export default async function ServiceSlugPage({ params }: ServicePageProps) {
   
   // This is a service slug - show service detail
   const [service, brands, settings] = await Promise.all([
-    getServiceBySlug(params.slug, locale),
+    getServiceBySlug(slug, locale),
     getBrands(locale),
     getSettings(locale),
   ]);

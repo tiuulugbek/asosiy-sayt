@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import { getPageBySlug, getPosts, getPostCategories, getBranches, getSettings } from '@/lib/api-server';
 import { detectLocale } from '@/lib/locale-server';
 import { getBilingualText } from '@/lib/locale';
@@ -18,85 +17,36 @@ export const revalidate = 0;
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = detectLocale();
-  const page = await getPageBySlug('patients', locale);
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://acoustic.uz';
   const pageUrl = `${baseUrl}/patients`;
-  
-  if (!page || page.status !== 'published') {
-    const title = locale === 'ru' ? 'Пациентам' : 'Bemorlar';
-    const description = locale === 'ru' 
+  const title =
+    locale === 'ru'
       ? 'Информация для пациентов'
-      : 'Bemorlar uchun ma\'lumot';
-    
-    return {
-      title: `${title} — Acoustic.uz`,
-      description,
-      alternates: {
-        canonical: pageUrl,
-        languages: {
-          uz: pageUrl,
-          ru: pageUrl,
-          'x-default': pageUrl,
-        },
-      },
-      openGraph: {
-        title: `${title} — Acoustic.uz`,
-        description,
-        url: pageUrl,
-        siteName: 'Acoustic.uz',
-        locale: locale === 'ru' ? 'ru_RU' : 'uz_UZ',
-        type: 'website',
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: `${title} — Acoustic.uz`,
-        description,
-      },
-    };
-  }
-
-  const title = getBilingualText(page.metaTitle_uz, page.metaTitle_ru, locale) || 
-                getBilingualText(page.title_uz, page.title_ru, locale);
-  const description = getBilingualText(page.metaDescription_uz, page.metaDescription_ru, locale) ||
-                      (locale === 'ru' ? 'Информация для пациентов' : 'Bemorlar uchun ma\'lumot');
-  const imageUrl = page.image?.url 
-    ? (page.image.url.startsWith('http') 
-        ? page.image.url 
-        : `${baseUrl}${page.image.url}`)
-    : `${baseUrl}/logo.png`;
+      : 'Bemorlar uchun ma\'lumotlar';
+  const description =
+    locale === 'ru'
+      ? 'Полезные статьи и информация для пациентов о слухе.'
+      : 'Bemorlar uchun foydali maqolalar, eshitish haqida ma\'lumotlar.';
 
   return {
     title: `${title} — Acoustic.uz`,
-    description: description || undefined,
+    description,
     alternates: {
       canonical: pageUrl,
-      languages: {
-        uz: pageUrl,
-        ru: pageUrl,
-        'x-default': pageUrl,
-      },
+      languages: { uz: pageUrl, ru: pageUrl, 'x-default': pageUrl },
     },
     openGraph: {
       title: `${title} — Acoustic.uz`,
-      description: description || undefined,
+      description,
       url: pageUrl,
       siteName: 'Acoustic.uz',
-      images: [
-        {
-          url: imageUrl,
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
       locale: locale === 'ru' ? 'ru_RU' : 'uz_UZ',
       type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
       title: `${title} — Acoustic.uz`,
-      description: description || undefined,
-      images: [imageUrl],
+      description,
     },
   };
 }
@@ -134,41 +84,11 @@ export default async function PatientsPage() {
   // Posts without category are NOT shown in section pages
   // Each section is isolated - only shows its own category posts
 
-  // Use fallback if page doesn't exist or is not published
-  const title = page && page.status === 'published' 
-    ? getBilingualText(page.title_uz, page.title_ru, locale)
-    : locale === 'ru' ? 'Пациентам' : 'Bemorlar';
-
-  // Build BreadcrumbList Structured Data
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://acoustic.uz';
-  const pageUrl = `${baseUrl}/patients`;
-  const breadcrumbJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: locale === 'ru' ? 'Главная' : 'Bosh sahifa',
-        item: baseUrl,
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: title,
-        item: pageUrl,
-      },
-    ],
-  };
+  const title =
+    locale === 'ru' ? 'Информация для пациентов' : 'Bemorlar uchun ma\'lumotlar';
 
   return (
     <main className="min-h-screen bg-background">
-      {/* BreadcrumbList Structured Data */}
-      <Script
-        id="breadcrumb-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
       <PageHeader
         locale={locale}
         breadcrumbs={[

@@ -12,6 +12,7 @@ import {
   getHomepageJourney,
   getHomepageHearingAidItems,
   getSettings,
+  getPublishedReviews,
 } from '@/lib/api-server';
 import type {
   BannerResponse,
@@ -27,6 +28,7 @@ import FAQAccordion from '@/components/homepage/faq-accordion';
 import Script from 'next/script';
 import type { Metadata } from 'next';
 import { normalizeImageUrl } from '@/lib/image-utils';
+import PublishedReviewsBlock from '@/components/published-reviews-block';
 
 // ISR: Revalidate every 30 minutes
 export const revalidate = 1800;
@@ -60,7 +62,7 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: 'Acoustic.uz',
       images: [
         {
-          url: `${baseUrl}/logo.png`,
+          url: `${baseUrl}/og-image.jpg`,
           width: 1200,
           height: 630,
           alt: 'Acoustic.uz',
@@ -73,12 +75,27 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
       title,
       description,
-      images: [`${baseUrl}/logo.png`],
+      images: [`${baseUrl}/og-image.jpg`],
     },
   };
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+function plainText(value?: string | null): string {
+  if (!value) return '';
+
+  return value
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export default async function HomePage() {
   // Detect locale server-side from cookies
@@ -96,6 +113,7 @@ export default async function HomePage() {
     faqData,
     hearingAidItemsData,
     settingsData,
+    publishedReviewsData,
   ] = await Promise.all([
     getPublicBanners(locale),
     getHomepageServices(locale),
@@ -106,6 +124,7 @@ export default async function HomePage() {
     getPublicFaq(locale),
     getHomepageHearingAidItems(locale),
     getSettings(locale),
+    getPublishedReviews(locale, 6),
   ]);
 
   // Transform data for rendering
@@ -170,10 +189,12 @@ export default async function HomePage() {
     const description = locale === 'ru' 
       ? ((product as any).homepageDescription_ru || product.description_ru || '')
       : ((product as any).homepageDescription_uz || product.description_uz || '');
-    // Use homepageImage if available, otherwise fallback to brand logo
+    // Use homepageImage if available, then product gallery image, otherwise brand logo
     let image = '';
     if ((product as any).homepageImage?.url) {
       image = (product as any).homepageImage.url;
+    } else if (Array.isArray(product.galleryUrls) && product.galleryUrls.length > 0) {
+      image = product.galleryUrls[0] || '';
     } else {
       image = product.brand?.logo?.url || '';
     }
@@ -181,7 +202,7 @@ export default async function HomePage() {
     return {
       id: product.slug ?? product.id ?? `interacoustics-${index}`,
       title: title || '',
-      description: description || '',
+      description: plainText(description),
       image: image || '',
       brand: product.brand?.name || '',
       slug: product.slug,
@@ -505,6 +526,15 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      {/* 6.5 Chop etilgan sharhlar (max 6 + /feedback havolasi) */}
+      <PublishedReviewsBlock
+        reviews={publishedReviewsData}
+        locale={locale}
+        maxItems={6}
+        showViewAllLink
+        headingLevel="h2"
+      />
 
       {/* 7. FAQ Section */}
       {faqData && faqData.length > 0 && (

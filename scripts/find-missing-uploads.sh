@@ -71,11 +71,11 @@ echo ""
 # Qidirish joylari (keng)
 SEARCH_DIRS=(
   /var/www/acoustic.uz
-  /root/acoustic.uz
+  /var/www/acoustic.uz
   /var/www/acoustic.uz/apps/backend
-  /root/acoustic.uz/apps/backend
+  /var/www/acoustic.uz/apps/backend
 )
-for d in /var/www/acoustic.uz.backup.* /root/acoustic.uz.backup.*; do
+for d in /var/www/acoustic.uz.backup.* /var/www/acoustic.uz.backup.*; do
   [[ -d "$d" ]] && SEARCH_DIRS+=("$d")
 done 2>/dev/null || true
 

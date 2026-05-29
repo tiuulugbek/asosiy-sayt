@@ -31,7 +31,7 @@ setsebool -P httpd_can_network_connect 1
 PM2 ba'zida permission muammosini hal qiladi:
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 
 # PM2 daemon ni to'liq tozalash
 pkill -9 -f "PM2.*God Daemon"
@@ -60,12 +60,12 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/acoustic.uz/apps/frontend
+WorkingDirectory=/var/www/acoustic.uz/apps/frontend
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=NEXT_PUBLIC_API_URL=https://a.acoustic.uz/api
 Environment=NEXT_PUBLIC_SITE_URL=https://acoustic.uz
-ExecStart=/usr/bin/node /root/acoustic.uz/apps/frontend/node_modules/.bin/next start
+ExecStart=/usr/bin/node /var/www/acoustic.uz/apps/frontend/node_modules/.bin/next start
 Restart=always
 RestartSec=10
 

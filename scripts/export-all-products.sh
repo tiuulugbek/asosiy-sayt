@@ -5,7 +5,7 @@
 PGPASSWORD="${PGPASSWORD:-acoustic_web_db_password}"
 DB_USER="acoustic_user"
 DB_NAME="acousticwebdb"
-OUTPUT_FILE="/root/acoustic.uz/scripts/products-export.json"
+OUTPUT_FILE="/var/www/acoustic.uz/scripts/products-export.json"
 
 echo "📦 Barcha mahsulotlarni export qilmoqda..."
 
@@ -64,11 +64,11 @@ data = sys.stdin.read().strip()
 if data:
     try:
         products = json.loads(data)
-        with open('/root/acoustic.uz/scripts/products-export.json', 'w', encoding='utf-8') as f:
+        with open('/var/www/acoustic.uz/scripts/products-export.json', 'w', encoding='utf-8') as f:
             json.dump(products, f, ensure_ascii=False, indent=2)
         
         print(f'✅ {len(products)} ta mahsulot export qilindi!')
-        print(f'📁 Fayl: /root/acoustic.uz/scripts/products-export.json')
+        print(f'📁 Fayl: /var/www/acoustic.uz/scripts/products-export.json')
         print(f'')
         print(f'📊 Statistika:')
         print(f'  - Jami mahsulotlar: {len(products)}')

@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Project root
-PROJECT_ROOT="/root/acoustic.uz"
+PROJECT_ROOT="/var/www/acoustic.uz"
 BACKEND_DIR="$PROJECT_ROOT/apps/backend"
 FRONTEND_DIR="$PROJECT_ROOT/apps/frontend"
 

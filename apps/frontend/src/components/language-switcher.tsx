@@ -166,7 +166,7 @@ export default function LanguageSwitcher({ initialLocale }: LanguageSwitcherProp
       <button
         type="button"
         onClick={() => handleLocaleChange('uz')}
-        className={`px-2 py-1 text-sm font-semibold transition ${
+        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-3 py-2 text-sm font-semibold transition ${
           displayLocale === 'uz'
             ? 'text-brand-primary underline'
             : 'text-muted-foreground hover:text-brand-primary'
@@ -179,7 +179,7 @@ export default function LanguageSwitcher({ initialLocale }: LanguageSwitcherProp
       <button
         type="button"
         onClick={() => handleLocaleChange('ru')}
-        className={`px-2 py-1 text-sm font-semibold transition ${
+        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-3 py-2 text-sm font-semibold transition ${
           displayLocale === 'ru'
             ? 'text-brand-primary underline'
             : 'text-muted-foreground hover:text-brand-primary'
@@ -269,7 +269,7 @@ export function LanguageSwitcherMobile({ initialLocale }: LanguageSwitcherProps 
       <button
         type="button"
         onClick={() => handleLocaleChange('uz')}
-        className={`px-2 py-1 text-sm font-semibold transition ${
+        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-3 py-2 text-sm font-semibold transition ${
           displayLocale === 'uz'
             ? 'text-white underline'
             : 'text-white/70 hover:text-white'
@@ -282,7 +282,7 @@ export function LanguageSwitcherMobile({ initialLocale }: LanguageSwitcherProps 
       <button
         type="button"
         onClick={() => handleLocaleChange('ru')}
-        className={`px-2 py-1 text-sm font-semibold transition ${
+        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-3 py-2 text-sm font-semibold transition ${
           displayLocale === 'ru'
             ? 'text-white underline'
             : 'text-white/70 hover:text-white'

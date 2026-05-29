@@ -44,13 +44,6 @@
             "order": 40
           },
           {
-            "id": "menu-catalog-accessories",
-            "title_uz": "Aksessuarlar",
-            "title_ru": "Аксессуары",
-            "href": "/catalog?productType=accessories",
-            "order": 50
-          },
-          {
             "id": "menu-catalog-earmolds",
             "title_uz": "Quloq qo'shimchalari",
             "title_ru": "Ушные вкладыши",
@@ -63,13 +56,6 @@
             "title_ru": "Батарейки",
             "href": "/catalog/batteries",
             "order": 70
-          },
-          {
-            "id": "menu-catalog-care",
-            "title_uz": "Parvarish vositalari",
-            "title_ru": "Средства ухода",
-            "href": "/catalog/care",
-            "order": 80
           }
         ]
       },
@@ -153,13 +139,6 @@
             "order": 40
           },
           {
-            "id": "menu-catalog-accessories",
-            "title_uz": "Aksessuarlar",
-            "title_ru": "Аксессуары",
-            "href": "/catalog?productType=accessories",
-            "order": 50
-          },
-          {
             "id": "menu-catalog-earmolds",
             "title_uz": "Quloq qo'shimchalari",
             "title_ru": "Ушные вкладыши",
@@ -172,13 +151,6 @@
             "title_ru": "Батарейки",
             "href": "/catalog/batteries",
             "order": 70
-          },
-          {
-            "id": "menu-catalog-care",
-            "title_uz": "Parvarish vositalari",
-            "title_ru": "Средства ухода",
-            "href": "/catalog/care",
-            "order": 80
           }
         ]
       },
@@ -238,20 +210,12 @@
         "label": "Interacoustics"
       },
       {
-        "href": "/catalog?productType=accessories",
-        "label": "Aksessuarlar"
-      },
-      {
         "href": "/catalog/earmolds",
         "label": "Quloq qo'shimchalari"
       },
       {
         "href": "/catalog/batteries",
         "label": "Batareyalar"
-      },
-      {
-        "href": "/catalog/care",
-        "label": "Parvarish vositalari"
       }
     ],
     "ru": [
@@ -272,20 +236,12 @@
         "label": "Interacoustics"
       },
       {
-        "href": "/catalog?productType=accessories",
-        "label": "Аксессуары"
-      },
-      {
         "href": "/catalog/earmolds",
         "label": "Ушные вкладыши"
       },
       {
         "href": "/catalog/batteries",
         "label": "Батарейки"
-      },
-      {
-        "href": "/catalog/care",
-        "label": "Средства ухода"
       }
     ]
   }

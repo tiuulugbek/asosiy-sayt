@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'acoustic-backend',
       script: 'apps/backend/dist/main.js',
-      cwd: '/root/acoustic.uz',
+      cwd: '/var/www/acoustic.uz',
       instances: 1,
       exec_mode: 'fork',
       env: {
@@ -22,13 +22,13 @@ module.exports = {
       name: 'acoustic-frontend',
       script: 'npm',
       args: 'start',
-      cwd: '/root/acoustic.uz/apps/frontend',
+      cwd: '/var/www/acoustic.uz/apps/frontend',
       instances: 1,
       exec_mode: 'fork',
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',
-        PORT: 3002,
+        PORT: 3000,
         NEXT_PUBLIC_API_URL: 'https://a.acoustic.uz/api',
         NEXT_PUBLIC_SITE_URL: 'https://acoustic.uz'
       },

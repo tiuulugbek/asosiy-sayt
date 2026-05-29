@@ -76,7 +76,7 @@ JSON fayl quyidagi formatda bo'lishi kerak:
 ## 🚀 Import Qilish
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 
 # Barcha mahsulotlarni import qilish
 pnpm exec ts-node scripts/import-products-from-json.ts products.json

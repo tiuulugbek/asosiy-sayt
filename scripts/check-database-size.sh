@@ -26,11 +26,11 @@ LIMIT 10;
 
 echo ""
 echo "📦 Backup fayllari:"
-ls -lh /root/acoustic.uz/backups/acousticwebdb_*.sql.gz 2>/dev/null | tail -5 | awk '{print $9, $5}'
+ls -lh /var/www/acoustic.uz/backups/acousticwebdb_*.sql.gz 2>/dev/null | tail -5 | awk '{print $9, $5}'
 
 echo ""
 echo "📊 So'nggi backup tafsilotlari:"
-latest_backup=$(ls -t /root/acoustic.uz/backups/acousticwebdb_*.sql.gz 2>/dev/null | head -1)
+latest_backup=$(ls -t /var/www/acoustic.uz/backups/acousticwebdb_*.sql.gz 2>/dev/null | head -1)
 if [ -n "$latest_backup" ]; then
     echo "Fayl: $latest_backup"
     echo "Siqilgan hajm: $(du -h "$latest_backup" | cut -f1)"

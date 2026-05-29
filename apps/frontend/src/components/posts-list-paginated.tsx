@@ -50,12 +50,13 @@ export default function PostsListPaginated({ posts, locale, postsPerPage = 6 }: 
               className="group flex flex-col overflow-hidden rounded-lg border border-border bg-white shadow-sm transition-shadow hover:shadow-md"
             >
               {coverUrl ? (
-                <Link href={`/posts/${post.slug}`} className="relative aspect-video w-full overflow-hidden bg-muted">
+                <Link href={`/posts/${post.slug}`} className="relative block aspect-video w-full overflow-hidden bg-muted">
                   <Image
                     src={coverUrl}
                     alt={title}
-                    fill
-                    className="object-cover transition-transform group-hover:scale-105"
+                    width={640}
+                    height={360}
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   />
                 </Link>

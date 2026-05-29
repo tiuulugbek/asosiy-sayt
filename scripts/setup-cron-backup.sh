@@ -2,7 +2,7 @@
 
 # Cron job sozlash skripti
 
-BACKUP_SCRIPT="/root/acoustic.uz/scripts/daily-backup-final.sh"
+BACKUP_SCRIPT="/var/www/acoustic.uz/scripts/daily-backup-final.sh"
 CRON_LOG="/var/log/daily-backup.log"
 
 echo "=== Daily Backup Cron Job sozlash ==="

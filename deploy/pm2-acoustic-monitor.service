@@ -5,4 +5,4 @@ After=network.target
 [Service]
 Type=oneshot
 User=root
-ExecStart=/bin/bash /root/acoustic.uz/scripts/monitor-service-restart.sh
+ExecStart=/bin/bash /var/www/acoustic.uz/scripts/monitor-service-restart.sh

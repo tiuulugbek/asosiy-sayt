@@ -14,20 +14,24 @@ export const revalidate = 0;
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = detectLocale();
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://acoustic.uz';
+  const pageUrl = `${baseUrl}/contact`;
   return {
     title: locale === 'ru' ? 'Контакты — Acoustic.uz' : 'Bog\'lanish — Acoustic.uz',
     description: locale === 'ru' 
       ? 'Свяжитесь с нами. Контактная информация центра слуха Acoustic'
       : 'Biz bilan bog\'laning. Acoustic eshitish markazi kontakt ma\'lumotlari',
+    alternates: { canonical: pageUrl },
   };
 }
 
 export default async function ContactPage() {
   const locale = detectLocale();
-  const [settings, branches] = await Promise.all([
+  const [settings, branchesRaw] = await Promise.all([
     getSettings(locale),
     getBranches(locale),
   ]);
+  const branches = Array.isArray(branchesRaw) ? branchesRaw : [];
 
   const title = locale === 'ru' ? 'Свяжитесь с нами' : 'Biz bilan bog\'laning';
   const isRu = locale === 'ru';
@@ -47,7 +51,7 @@ export default async function ContactPage() {
           { label: locale === 'ru' ? 'Главная' : 'Bosh sahifa', href: '/' },
           { label: title },
         ]}
-        title=""
+        title={title} showHeading={false}
         description=""
       />
 

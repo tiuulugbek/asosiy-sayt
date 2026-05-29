@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTableLoading } from '../hooks/useTableLoading';
 import {
   Table,
   Button,
@@ -14,7 +16,12 @@ import {
   Upload,
   Image,
 } from 'antd';
-import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
+import ListTable from '../components/common/ListTable';
+import TableActions from '../components/common/TableActions';
+import StatusTag from '../components/common/StatusTag';
 import type { UploadProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -33,7 +40,9 @@ import {
   ApiError,
   getMedia,
   uploadMedia,
+  getBranches,
   type MediaDto,
+  type BranchDto,
 } from '../lib/api';
 import { createSlug } from '../utils/slug';
 import ImageSizeHint from '../components/ImageSizeHint';
@@ -47,12 +56,14 @@ const statusOptions = [
 ];
 
 export default function DoctorsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery<DoctorDto[], ApiError>({
+  const { data, isLoading, isFetching, isPending } = useQuery<DoctorDto[], ApiError>({
     queryKey: ['doctors'],
     queryFn: getDoctors,
     retry: false,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
   // Fetch media list for image selection
   const { data: mediaList } = useQuery<MediaDto[], ApiError>({
@@ -61,6 +72,30 @@ export default function DoctorsPage() {
     retry: false,
   });
 
+  const { data: branches } = useQuery<BranchDto[], ApiError>({
+    queryKey: ['branches'],
+    queryFn: getBranches,
+    retry: false,
+  });
+
+  const branchOptions = useMemo(
+    () =>
+      (branches ?? []).map((b) => ({
+        value: b.id,
+        label: b.name_ru ? `${b.name_uz} / ${b.name_ru}` : b.name_uz,
+      })),
+    [branches],
+  );
+
+  const branchNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    (branches ?? []).forEach((b) => m.set(b.id, b.name_uz));
+    return m;
+  }, [branches]);
+
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [branchFilter, setBranchFilter] = useState<string | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<DoctorDto | null>(null);
   const [form] = Form.useForm();
@@ -101,6 +136,7 @@ export default function DoctorsPage() {
     form.setFieldsValue({
       status: 'published',
       order: 0,
+      branchIds: [],
     });
     setIsModalOpen(true);
   };
@@ -121,6 +157,7 @@ export default function DoctorsPage() {
       status: doctor.status,
       order: doctor.order,
       imageId: doctor.image?.id,
+      branchIds: doctor.branchIds?.length ? [...doctor.branchIds] : [],
     });
     setIsModalOpen(true);
   };
@@ -178,6 +215,7 @@ export default function DoctorsPage() {
         order: typeof values.order === 'number' ? values.order : Number(values.order ?? 0),
         status: values.status,
         imageId: values.imageId || undefined,
+        branchIds: Array.isArray(values.branchIds) ? values.branchIds : [],
       };
 
       if (editingDoctor) {
@@ -227,9 +265,15 @@ export default function DoctorsPage() {
         title: 'Holati',
         dataIndex: 'status',
         key: 'status',
-        render: (value: DoctorDto['status']) => {
-          const color = value === 'published' ? 'green' : value === 'draft' ? 'orange' : 'default';
-          return <Tag color={color}>{value}</Tag>;
+        render: (value: DoctorDto['status']) => <StatusTag status={value} />,
+      },
+      {
+        title: 'Filiallar',
+        key: 'branchIds',
+        render: (_: unknown, record: DoctorDto) => {
+          const ids = record.branchIds ?? [];
+          if (ids.length === 0) return <span style={{ color: '#9ca3af' }}>—</span>;
+          return <Tag>{ids.length} ta filial</Tag>;
         },
       },
       {
@@ -246,44 +290,47 @@ export default function DoctorsPage() {
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right' as const,
         render: (_, record) => (
-          <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Mutaxassisni o'chirish"
-              description="Ushbu mutaxassisni o'chirishni tasdiqlang"
-              onConfirm={() => handleDelete(record)}
-              okText="Ha"
-              cancelText="Yo'q"
-            >
-              <Button danger size="small" loading={isDeleting}>
-                O'chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions onEdit={() => navigate(`/doctors/${record.id}/edit`)} onDelete={() => handleDelete(record)} loading={isDeleting} />
         ),
       },
     ],
-    [isDeleting],
+    [isDeleting, branchNameById],
   );
+
+  const filtered = useMemo(() => {
+    return (data ?? []).filter((d) => {
+      if (statusFilter && d.status !== statusFilter) return false;
+      if (branchFilter && !(d.branchIds ?? []).includes(branchFilter)) return false;
+      if (!searchText.trim()) return true;
+      const q = searchText.toLowerCase();
+      return d.name_uz.toLowerCase().includes(q) || (d.name_ru?.toLowerCase().includes(q) ?? false);
+    });
+  }, [data, searchText, statusFilter, branchFilter]);
+
+  const statusOptions = [
+    { label: 'Published', value: 'published' },
+    { label: 'Draft', value: 'draft' },
+    { label: 'Archived', value: 'archived' },
+  ];
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>Mutaxassislar</h2>
-        <Button type="primary" onClick={openCreateModal}>
-          + Yangi mutaxassis
-        </Button>
-      </div>
-      <Table
-        columns={columns}
-        dataSource={data || []}
-        loading={isLoading}
-        rowKey="id"
-        pagination={{ pageSize: 20 }}
+      <PageHeader
+        title="Mutaxassislar"
+        description="Shifokorlar va audiologlar"
+        count={filtered.length}
+        loading={tableLoading}
+        action={<Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/doctors/new')}>Yangi mutaxassis</Button>}
       />
+      <FilterPanel onClear={() => { setSearchText(''); setStatusFilter(undefined); setBranchFilter(undefined); }}>
+        <Input placeholder="Ism bo'yicha qidirish..." value={searchText} onChange={(e) => setSearchText(e.target.value)} allowClear size="large" className="min-w-[240px] flex-1" />
+        <Select placeholder="Holat" allowClear value={statusFilter} onChange={setStatusFilter} options={statusOptions} className="min-w-[140px]" />
+        <Select placeholder="Filial" allowClear value={branchFilter} onChange={setBranchFilter} options={(branches ?? []).map((b) => ({ label: b.name_uz, value: b.id }))} className="min-w-[180px]" />
+      </FilterPanel>
+      <ListTable columns={columns} dataSource={filtered} loading={tableLoading} />
       <Modal
         title={editingDoctor ? 'Mutaxassisni tahrirlash' : 'Yangi mutaxassis'}
         open={isModalOpen}
@@ -347,6 +394,19 @@ export default function DoctorsPage() {
             extra="URL uchun qisqa nom (avtomatik yaratiladi yoki qo'lda kiriting)"
           >
             <Input placeholder="Avtomatik yaratiladi..." />
+          </Form.Item>
+          <Form.Item
+            label="Filiallar"
+            name="branchIds"
+            extra="Qaysi filial sahifalarida «Shifokorlar» bo‘limida ko‘rsatiladi. Hech narsa tanlanmasa, filial sahifalarida chiqmaydi (bosh sahifadagi ro‘yxatga ta’sir qilmaydi)."
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="Filial(lar)ni tanlang"
+              options={branchOptions}
+              optionFilterProp="label"
+            />
           </Form.Item>
           <ImageSizeHint type="doctor" />
           <Form.Item label="Rasm" name="imageId" extra="Mutaxassis rasmi">

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   Button,
   Space,
   Tag,
+  Alert,
   Modal,
   Form,
   Input,
@@ -16,15 +18,20 @@ import {
   Row,
   Col,
 } from 'antd';
-import { UploadOutlined, DeleteOutlined, FolderOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
+import ListTable from '../components/common/ListTable';
+import SortableTable from '../components/common/SortableTable';
+import { applyOrderUpdates } from '../lib/reorder';
+import TableActions from '../components/common/TableActions';
+import StatusTag from '../components/common/StatusTag';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  getBannersAdmin,
   createBanner,
   updateBanner,
-  deleteBanner,
   getMedia,
   uploadMedia,
   type BannerDto,
@@ -33,6 +40,8 @@ import {
   type MediaDto,
   ApiError,
 } from '../lib/api';
+import { useBanners, useDeleteBanner } from '../hooks/useBanners';
+import { useTableLoading } from '../hooks/useTableLoading';
 import MediaLibraryModal from '../components/MediaLibraryModal';
 import ImageSizeHint from '../components/ImageSizeHint';
 import { normalizeImageUrl } from '../utils/image';
@@ -45,18 +54,34 @@ const statusOptions = [
 ];
 
 export default function BannersPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: banners, isLoading } = useQuery<BannerDto[], ApiError>({
-    queryKey: ['banners-admin'],
-    queryFn: getBannersAdmin,
-  });
+  const { data: banners, isLoading, isFetching, isPending, isError, error, refetch } = useBanners();
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
+  const { mutateAsync: deleteMutation, isPending: isDeleting } = useDeleteBanner();
 
   const { data: mediaList } = useQuery<MediaDto[], ApiError>({
     queryKey: ['media'],
     queryFn: getMedia,
   });
 
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [reordering, setReordering] = useState(false);
+
+  const handleReorder = async (orderedIds: string[]) => {
+    setReordering(true);
+    try {
+      await applyOrderUpdates(orderedIds, (id, order) => updateBanner(id, { order }));
+      queryClient.invalidateQueries({ queryKey: ['banners'] });
+      message.success('Tartib yangilandi');
+    } catch (e) {
+      message.error((e as ApiError).message || 'Xatolik');
+    } finally {
+      setReordering(false);
+    }
+  };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<BannerDto | null>(null);
   const [form] = Form.useForm();
@@ -67,7 +92,7 @@ export default function BannersPage() {
   const { mutateAsync: createMutation, isPending: isCreating } = useMutation<BannerDto, ApiError, CreateBannerPayload>({
     mutationFn: createBanner,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['banners-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['banners'] });
       message.success('Slayd saqlandi');
     },
     onError: (error) => message.error(error.message || 'Saqlashda xatolik'),
@@ -80,19 +105,10 @@ export default function BannersPage() {
   >({
     mutationFn: ({ id, payload }) => updateBanner(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['banners-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['banners'] });
       message.success('Slayd yangilandi');
     },
     onError: (error) => message.error(error.message || 'Yangilashda xatolik'),
-  });
-
-  const { mutateAsync: deleteMutation, isPending: isDeleting } = useMutation<void, ApiError, string>({
-    mutationFn: deleteBanner,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['banners-admin'] });
-      message.success('Slayd o‘chirildi');
-    },
-    onError: (error) => message.error(error.message || "O'chirishda xatolik"),
   });
 
   const openCreateModal = () => {
@@ -124,6 +140,24 @@ export default function BannersPage() {
   const handleDelete = async (banner: BannerDto) => {
     await deleteMutation(banner.id);
   };
+
+  if (isError) {
+    return (
+      <div>
+        <PageHeader title="Slaydlar" />
+        <Alert
+          type="error"
+          message="Slaydlar yuklanmadi"
+          description={error?.message}
+          action={
+            <Button size="small" onClick={() => refetch()}>
+              Qayta urinish
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   const handleSubmit = async () => {
     try {
@@ -233,10 +267,7 @@ export default function BannersPage() {
         title: 'Holati',
         dataIndex: 'status',
         key: 'status',
-        render: (value: BannerDto['status']) => {
-          const color = value === 'published' ? 'green' : value === 'draft' ? 'orange' : 'default';
-          return <Tag color={color}>{value}</Tag>;
-        },
+        render: (value: BannerDto['status']) => <StatusTag status={value} />,
       },
       {
         title: 'Tartib',
@@ -263,44 +294,57 @@ export default function BannersPage() {
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right' as const,
         render: (_, record) => (
-          <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Slaydni o‘chirish"
-              description="Ushbu slaydni o‘chirishni tasdiqlang"
-              okText="Ha"
-              cancelText="Yo‘q"
-              onConfirm={() => handleDelete(record)}
-            >
-              <Button danger size="small" loading={isDeleting}>
-                O‘chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions onEdit={() => navigate(`/banners/${record.id}/edit`)} onDelete={() => handleDelete(record)} loading={isDeleting} />
         ),
       },
     ],
-    [isDeleting, openEditModal, handleDelete],
+    [isDeleting, navigate, handleDelete],
   );
+
+  const filtered = useMemo(() => {
+    return (banners ?? []).filter((b) => {
+      if (statusFilter && b.status !== statusFilter) return false;
+      if (!searchText.trim()) return true;
+      const q = searchText.toLowerCase();
+      return b.title_uz.toLowerCase().includes(q) || (b.title_ru?.toLowerCase().includes(q) ?? false);
+    });
+  }, [banners, searchText, statusFilter]);
 
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={openCreateModal}>
-          Yangi slayd
-        </Button>
-      </Space>
-
-      <Table
-        loading={isLoading}
-        dataSource={banners ?? []}
-        columns={columns}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
+      <PageHeader
+        title="Slaydlar"
+        description="Bosh sahifa slider rasmlari"
+        count={filtered.length}
+        loading={tableLoading}
+        action={<Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/banners/new')}>Yangi slayd</Button>}
       />
+      <FilterPanel onClear={() => { setSearchText(''); setStatusFilter(undefined); }}>
+        <Input placeholder="Sarlavha bo'yicha qidirish..." value={searchText} onChange={(e) => setSearchText(e.target.value)} allowClear size="large" className="min-w-[240px] flex-1" />
+        <Select placeholder="Holat" allowClear value={statusFilter} onChange={setStatusFilter} options={statusOptions} className="min-w-[140px]" />
+      </FilterPanel>
+      {!searchText && !statusFilter ? (
+        <SortableTable
+          loading={tableLoading}
+          reordering={reordering}
+          dataSource={[...filtered].sort((a, b) => a.order - b.order)}
+          columns={columns}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
+          onReorder={handleReorder}
+        />
+      ) : (
+        <ListTable
+          loading={tableLoading}
+          dataSource={filtered}
+          columns={columns}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
+        />
+      )}
 
       <Modal
         title={editingBanner ? 'Slaydni tahrirlash' : 'Yangi slayd'}

@@ -135,9 +135,7 @@ export default async function ChildrenHearingPage() {
   // Each section is isolated - only shows its own category posts
 
   // Use fallback if page doesn't exist or is not published
-  const title = page && page.status === 'published' 
-    ? getBilingualText(page.title_uz, page.title_ru, locale)
-    : locale === 'ru' ? 'Дети и слух' : 'Bolalar va eshitish';
+  const title = locale === 'ru' ? 'Дети и слух' : 'Bolalar va eshitish';
 
   // Build BreadcrumbList Structured Data
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://acoustic.uz';

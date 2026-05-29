@@ -14,7 +14,7 @@ Frontend ishlamayapti - `GET https://acoustic.uz/patients 502 (Bad Gateway)`
 ### Variant 1: Frontend ni boshqa portda ishga tushirish
 
 ```bash
-cd /root/acoustic.uz/apps/frontend
+cd /var/www/acoustic.uz/apps/frontend
 PORT=3003 NODE_ENV=production \
 NEXT_PUBLIC_API_URL=https://a.acoustic.uz/api \
 NEXT_PUBLIC_SITE_URL=https://acoustic.uz \
@@ -43,7 +43,7 @@ pkill -9 -f "node.*3002"
 ### Variant 3: PM2 orqali ishga tushirish (agar permission muammosi hal qilingan bo'lsa)
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pm2 start deploy/ecosystem.config.js --only acoustic-frontend
 ```
 

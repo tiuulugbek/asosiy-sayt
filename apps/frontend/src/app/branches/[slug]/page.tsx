@@ -135,6 +135,10 @@ export default async function BranchPage({ params }: BranchPageProps) {
     ? allServices.filter(service => branchServiceIds.includes(service.id))
     : allServices.slice(0, 6); // Fallback: show first 6 services if no specific services assigned
 
+  const branchDoctors = doctors.filter(
+    (d) => Array.isArray(d.branchIds) && d.branchIds.includes(branch.id),
+  );
+
   // Build LocalBusiness Structured Data
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://acoustic.uz';
   const branchUrl = `${baseUrl}/branches/${branch.slug}`;
@@ -239,14 +243,14 @@ export default async function BranchPage({ params }: BranchPageProps) {
                 </section>
               )}
 
-              {/* Doctors Section */}
-              {doctors && doctors.length > 0 && (
+              {/* Doctors Section — only mutaxassislar assigned to this branch (branchIds) */}
+              {branchDoctors.length > 0 && (
                 <section id="doctors" className="scroll-mt-20" suppressHydrationWarning>
                   <h2 className="mb-3 text-xl sm:text-2xl font-bold text-foreground" suppressHydrationWarning>
                     {locale === 'ru' ? 'Врачи' : 'Shifokorlar'}
                   </h2>
                   <div className="grid gap-4 sm:gap-6 sm:grid-cols-2" suppressHydrationWarning>
-                    {doctors.slice(0, 4).map((doctor) => {
+                    {branchDoctors.slice(0, 4).map((doctor) => {
                       const doctorName = getBilingualText(doctor.name_uz, doctor.name_ru, locale);
                       const position = getBilingualText(doctor.position_uz, doctor.position_ru, locale);
                       const experience = getBilingualText(doctor.experience_uz, doctor.experience_ru, locale);
@@ -391,7 +395,7 @@ export default async function BranchPage({ params }: BranchPageProps) {
             <aside className="order-first lg:order-last lg:sticky lg:top-20 lg:self-start lg:h-fit" suppressHydrationWarning>
               <div className="rounded-lg border border-border bg-white p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6" suppressHydrationWarning>
                 {/* Table of Contents */}
-                <BranchTOC locale={locale} hasTour3d={hasTour3d} />
+                <BranchTOC locale={locale} hasTour3d={hasTour3d} includeDoctors={branchDoctors.length > 0} />
 
                 {/* Address */}
                 <div>

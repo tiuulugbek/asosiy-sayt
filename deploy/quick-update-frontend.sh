@@ -1,13 +1,13 @@
 #!/bin/bash
 # Tezkor frontend yangilanish skripti
-# /root/acoustic.uz dan /var/www/acoustic.uz ga kodlarni ko'chirish va build qilish
+# /var/www/acoustic.uz dan /var/www/acoustic.uz ga kodlarni ko'chirish va build qilish
 
 set -e
 
 echo "🔄 Frontend'ni yangilash..."
 echo ""
 
-SOURCE_DIR="/root/acoustic.uz/apps/frontend"
+SOURCE_DIR="/var/www/acoustic.uz/apps/frontend"
 TARGET_DIR="/var/www/acoustic.uz/apps/frontend"
 
 # 1. Kodlarni ko'chirish

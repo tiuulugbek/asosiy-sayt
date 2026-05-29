@@ -43,4 +43,4 @@
   FROM "Product" p
   LEFT JOIN "Brand" b ON p."brandId" = b.id
   ORDER BY p."createdAt" DESC
-) TO '/root/acoustic.uz/scripts/products-export.json';
+) TO '/var/www/acoustic.uz/scripts/products-export.json';

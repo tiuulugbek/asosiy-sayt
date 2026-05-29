@@ -3,7 +3,7 @@
 # Bu script frontend'ni doimiy ishga tushirish uchun
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="/root/acoustic.uz"
+PROJECT_DIR="/var/www/acoustic.uz"
 FRONTEND_DIR="$PROJECT_DIR/apps/frontend"
 LOG_FILE="/tmp/acoustic-frontend.log"
 PID_FILE="/tmp/acoustic-frontend.pid"

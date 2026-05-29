@@ -105,7 +105,8 @@ async function fetchJson<T>(
       const isHomepageEndpoint = path.includes('/homepage/') || 
                                   path.includes('/banners') ||
                                   path.includes('/faq') ||
-                                  path.includes('/showcases');
+                                  path.includes('/showcases') ||
+                                  path.includes('/reviews/published');
       const isMenuEndpoint = path.includes('/menus/');
       const isCategoryEndpoint = path.includes('/product-categories');
       const isProductEndpoint = path.includes('/products');
@@ -120,9 +121,14 @@ async function fetchJson<T>(
       // Server-side: Use revalidate for ISR (works with static generation)
       // Client-side: Use no-store to prevent stale data
       const isServer = typeof window === 'undefined';
-      const cacheOptions = isServer 
-        ? { next: { revalidate: 300 } } // 5 minutes revalidation for ISR to ensure updates are reflected quickly
-        : { cache: 'no-store' as RequestCache }; // No cache for client-side
+      const pathForCacheCheck = path.split('?')[0];
+      const needsFreshOnServer =
+        pathForCacheCheck.includes('/doctors') || pathForCacheCheck.includes('/branches/slug/');
+      const cacheOptions = isServer
+        ? needsFreshOnServer
+          ? { cache: 'no-store' as RequestCache }
+          : { next: { revalidate: 300 } }
+        : { cache: 'no-store' as RequestCache };
       
       const response = await fetch(finalUrl, {
         ...init,
@@ -157,13 +163,14 @@ async function fetchJson<T>(
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorName = error instanceof Error ? error.name : 'Unknown';
     
-    // Enhanced error logging for debugging
     const apiBase = getApiBaseUrl();
+    const pathForUrl = path.startsWith('/') ? path.slice(1) : path;
+    const fullUrl = apiBase.replace(/\/$/, '') + '/' + pathForUrl;
     console.error(`[API] ❌ Failed to fetch ${path}:`, {
       error: errorMessage,
       errorType: errorName,
       apiBase: apiBase,
-      fullUrl: `${apiBase}/${path}`,
+      fullUrl,
       locale: locale || 'not provided',
     });
     
@@ -221,6 +228,27 @@ export interface ProductCategoryResponse {
   order: number;
 }
 
+export const getProductCategories = (locale?: string) => {
+  return fetchJson<ProductCategoryResponse[]>('/product-categories', locale);
+};
+
+export const getCategoryBySlug = async (slug: string, locale?: string): Promise<ProductCategoryResponse | null> => {
+  try {
+    const directResult = await fetchJson<ProductCategoryResponse>(`/product-categories/slug/${slug}`, locale);
+    if (directResult) {
+      return directResult;
+    }
+  } catch {
+    // fallback below
+  }
+
+  const categories = await getProductCategories(locale);
+  if (!categories || categories.length === 0) {
+    return null;
+  }
+  return categories.find((cat) => cat.slug === slug) ?? null;
+};
+
 export const getPublicBanners = (locale?: string) => {
   const url = '/banners?public=true';
   return fetchJson<BannerResponse[]>(url, locale);
@@ -234,10 +262,6 @@ export const getPublicServices = (locale?: string) => {
 export const getHomepageServices = (locale?: string) => {
   const url = '/homepage/services';
   return fetchJson<ServiceResponse[]>(url, locale);
-};
-
-export const getProductCategories = (locale?: string) => {
-  return fetchJson<ProductCategoryResponse[]>('/product-categories', locale);
 };
 
 export interface CatalogResponse {
@@ -345,25 +369,6 @@ export const getServiceCategoryBySlug = async (slug: string, locale?: string): P
   return categories.find((cat) => cat.slug === slug) ?? null;
 };
 
-export const getCategoryBySlug = async (slug: string, locale?: string): Promise<ProductCategoryResponse | null> => {
-  try {
-    // First try direct API endpoint (if backend supports it)
-    const directResult = await fetchJson<ProductCategoryResponse>(`/product-categories/slug/${slug}`, locale);
-    if (directResult) {
-      return directResult;
-    }
-  } catch {
-    // Fallback to searching all categories
-  }
-  
-  // Fallback: get all categories and find by slug
-  const categories = await getProductCategories(locale);
-  if (!categories || categories.length === 0) {
-    return null;
-  }
-  return categories.find((cat) => cat.slug === slug) ?? null;
-};
-
 export interface MenuItemResponse {
   id: string;
   title_uz: string;
@@ -443,6 +448,8 @@ export interface ProductResponse {
   galleryUrls: string[];
   relatedProductIds: string[];
   usefulArticleSlugs: string[];
+  discountPercent?: number | null;
+  originalPrice?: string | null;
   relatedProducts?: RelatedProductSummary[];
   usefulArticles?: UsefulArticleSummary[];
 }
@@ -461,6 +468,8 @@ export interface RelatedProductSummary {
   } | null;
   galleryUrls?: string[];
   availabilityStatus?: string | null;
+  discountPercent?: number | null;
+  originalPrice?: string | null;
 }
 
 export interface UsefulArticleSummary {
@@ -484,30 +493,13 @@ export const getShowcase = (type: 'interacoustics' | 'cochlear', locale?: string
 };
 
 export const getProductBySlug = async (slug: string, locale?: string): Promise<ProductResponse | null> => {
-  // Try direct endpoint first
+  // Faqat slug endpoint — bitta mahsulot bitta slug (galleryUrls bo‘sh bo‘lsa ham ishlatamiz)
   try {
-    const directResult = await fetchJson<ProductResponse | null>(`/products/slug/${slug}`, locale);
-    // Check if we got a result AND it has galleryUrls with at least one image
-    if (directResult && directResult.galleryUrls && directResult.galleryUrls.length > 0) {
-      return directResult;
-    }
-    // If directResult exists but has no galleryUrls, continue to fallback
+    const product = await fetchJson<ProductResponse | null>(`/products/slug/${slug}`, locale);
+    if (product != null) return product;
   } catch {
-    // If direct endpoint fails, continue to fallback
+    // 404 yoki tarmoq xatosi
   }
-  
-  // Fallback: search in products list if direct endpoint doesn't return galleryUrls
-  try {
-    const searchResult = await fetchJson<{ items: ProductResponse[]; total: number }>(`/products?slug=${slug}`, locale);
-    if (searchResult && searchResult.items && searchResult.items.length > 0) {
-      const product = searchResult.items[0];
-      // Prefer the search result if it has galleryUrls, otherwise return it anyway
-      return product;
-    }
-  } catch {
-    // Return null if both methods fail
-  }
-  
   return null;
 };
 
@@ -525,6 +517,7 @@ export interface ProductListParams {
   smartphoneCompatibility?: string;
   paymentOption?: string;
   availabilityStatus?: string;
+  discount?: boolean;
   limit?: number;
   offset?: number;
   sort?: 'newest' | 'price_asc' | 'price_desc';
@@ -552,6 +545,7 @@ export const getProducts = (params?: ProductListParams, locale?: string): Promis
   if (params?.smartphoneCompatibility) query.set('smartphoneCompatibility', params.smartphoneCompatibility);
   if (params?.paymentOption) query.set('paymentOption', params.paymentOption);
   if (params?.availabilityStatus) query.set('availabilityStatus', params.availabilityStatus);
+  if (params?.discount === true) query.set('discount', 'true');
   if (params?.limit !== undefined) query.set('limit', params.limit.toString());
   if (params?.offset !== undefined) query.set('offset', params.offset.toString());
   if (params?.sort) query.set('sort', params.sort);
@@ -798,22 +792,6 @@ export const getBranchBySlug = (slug: string, locale?: string) => {
   return fetchJson<BranchResponse>(`/branches/slug/${slug}`, locale);
 };
 
-export interface DoctorResponse {
-  id: string;
-  name_uz: string;
-  name_ru: string;
-  position_uz?: string | null;
-  position_ru?: string | null;
-  experience_uz?: string | null;
-  experience_ru?: string | null;
-  description_uz?: string | null;
-  description_ru?: string | null;
-  slug: string;
-  image?: MediaResponse | null;
-  order: number;
-  status: string;
-}
-
 export const getDoctors = (locale?: string) => {
   return fetchJson<DoctorResponse[]>('/doctors?public=true', locale);
 };
@@ -865,6 +843,7 @@ export interface CreateLeadRequest {
   source?: string;
   message?: string;
   productId?: string | null;
+  utmParams?: Record<string, string> | null;
 }
 
 export interface LeadResponse {
@@ -875,10 +854,62 @@ export interface LeadResponse {
   source?: string | null;
   message?: string | null;
   productId?: string | null;
+  utmParams?: Record<string, string> | null;
   status?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface CreateReviewRequest {
+  name: string;
+  rating: number;
+  body: string;
+}
+
+export interface ReviewResponse {
+  id: string;
+  name: string;
+  rating: number;
+  body: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Chop etilgan mijoz sharhlari (faqat public ro‘yxat) */
+export interface PublishedReviewItem {
+  id: string;
+  name: string;
+  rating: number;
+  body: string;
+  createdAt: string;
+}
+
+export const getPublishedReviews = (locale?: string, limit = 50) => {
+  const q = Math.min(Math.max(limit, 1), 100);
+  return fetchJson<PublishedReviewItem[]>(`/reviews/published?limit=${q}`, locale);
+};
+
+export const createReview = async (
+  data: CreateReviewRequest,
+  locale?: string,
+): Promise<ReviewResponse> => {
+  const response = await fetch(`${getApiBaseUrl()}/reviews`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(locale ? { 'X-Locale': locale } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new ApiFetchError(response.status, errorText || 'Failed to submit review');
+  }
+
+  return response.json();
+};
 
 export const createLead = async (data: CreateLeadRequest, locale?: string): Promise<LeadResponse> => {
   const response = await fetch(`${getApiBaseUrl()}/leads`, {

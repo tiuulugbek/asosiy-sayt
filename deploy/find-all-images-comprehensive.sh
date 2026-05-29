@@ -10,7 +10,7 @@ done
 echo ""
 
 echo "2. Development uploads papkalari:"
-find /root/acoustic.uz -type d -name "uploads" 2>/dev/null | while read dir; do
+find /var/www/acoustic.uz -type d -name "uploads" 2>/dev/null | while read dir; do
     count=$(find "$dir" -type f -name "*.webp" 2>/dev/null | wc -l)
     echo "   $dir: $count ta webp"
 done

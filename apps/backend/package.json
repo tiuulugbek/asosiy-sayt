@@ -4,7 +4,7 @@
   "description": "Backend API for acoustic.uz",
   "scripts": {
     "postinstall": "node postinstall.js",
-    "build": "tsc && node postbuild.js",
+    "build": "pnpm run db:generate && tsc && node postbuild.js",
     "build:nest": "pnpm exec nest build",
     "dev": "pnpm exec nest start --watch",
     "start": "node dist/main",
@@ -50,9 +50,11 @@
     "pino": "^8.17.2",
     "pino-http": "^8.6.0",
     "pino-pretty": "^10.3.1",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.1.14",
     "rxjs": "^7.8.1",
     "sharp": "^0.34.5",
+    "ua-parser-js": "^2.0.9",
     "xlsx": "^0.18.5",
     "zod": "^3.22.4"
   },

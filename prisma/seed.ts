@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function clearDatabase() {
+  await prisma.review.deleteMany();
   await prisma.lead.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.menu.deleteMany();
@@ -37,16 +38,18 @@ async function seedRoles() {
         'settings.write',
         'media.*',
         'leads.read',
+        'reviews.read',
+        'reviews.write',
         'audit.read',
       ],
     },
     {
       name: 'editor',
-      permissions: ['content.*', 'media.*', 'leads.read'],
+      permissions: ['content.*', 'media.*', 'leads.read', 'reviews.read'],
     },
     {
       name: 'viewer',
-      permissions: ['content.read', 'media.read', 'leads.read'],
+      permissions: ['content.read', 'media.read', 'leads.read', 'reviews.read'],
     },
   ];
 

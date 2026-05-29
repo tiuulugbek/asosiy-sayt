@@ -6,7 +6,7 @@ set -e
 echo "🚀 Production'ga to'liq ko'chirish va sozlash..."
 echo ""
 
-DEV_DIR="/root/acoustic.uz"
+DEV_DIR="/var/www/acoustic.uz"
 PROD_DIR="/var/www/acoustic.uz"
 BACKUP_DIR="/var/www/acoustic.uz.backup.$(date +%Y%m%d_%H%M%S)"
 
@@ -72,8 +72,8 @@ echo ""
 
 # 6. Database muammosini tuzatish
 echo "💾 6. Database muammosini tuzatish..."
-if [ -f "/root/acoustic.uz/deploy/fix-database-auth.sh" ]; then
-    bash /root/acoustic.uz/deploy/fix-database-auth.sh
+if [ -f "/var/www/acoustic.uz/deploy/fix-database-auth.sh" ]; then
+    bash /var/www/acoustic.uz/deploy/fix-database-auth.sh
 fi
 echo ""
 

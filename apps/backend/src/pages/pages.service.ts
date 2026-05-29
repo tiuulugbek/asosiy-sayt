@@ -10,7 +10,7 @@ export class PagesService {
     if (!includeDraft) {
       where.status = 'published';
     }
-    
+
     const page = await this.prisma.page.findFirst({
       where,
     });

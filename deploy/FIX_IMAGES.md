@@ -4,7 +4,7 @@
 
 1. ✅ Backend `.env` faylida `UPLOADS_DIR` yangilandi:
    - Eski: `/var/www/acoustic.uz/apps/backend/uploads`
-   - Yangi: `/root/acoustic.uz/apps/backend/uploads`
+   - Yangi: `/var/www/acoustic.uz/apps/backend/uploads`
 
 2. ✅ Backend kodida uploads path topish logikasi yaxshilandi (`src/main.ts`)
 
@@ -22,7 +22,7 @@ pkill -9 -f "PM2.*God Daemon.*root"
 rm -rf /root/.pm2
 
 # Backend ni qayta ishga tushirish
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pm2 start deploy/ecosystem.config.js --only acoustic-backend
 pm2 save
 ```
@@ -30,7 +30,7 @@ pm2 save
 ### Variant 2: Backend ni to'g'ridan-to'g'ri ishga tushirish (test uchun)
 
 ```bash
-cd /root/acoustic.uz/apps/backend
+cd /var/www/acoustic.uz/apps/backend
 node dist/main.js
 ```
 
@@ -44,7 +44,7 @@ ps aux | grep "node.*dist/main.js" | grep -v grep
 pkill -f "node.*dist/main.js"
 
 # PM2 orqali qayta ishga tushirish
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pm2 restart acoustic-backend
 ```
 
@@ -58,13 +58,13 @@ pm2 logs acoustic-backend --lines 50
 
 Logda quyidagi xabarni ko'rish kerak:
 ```
-📁 Serving static files from: /root/acoustic.uz/apps/backend/uploads
+📁 Serving static files from: /var/www/acoustic.uz/apps/backend/uploads
 ```
 
 ### 2. Uploads katalogini tekshirish
 
 ```bash
-ls -la /root/acoustic.uz/apps/backend/uploads/ | head -10
+ls -la /var/www/acoustic.uz/apps/backend/uploads/ | head -10
 ```
 
 ### 3. HTTP test
@@ -100,18 +100,18 @@ curl -I https://a.acoustic.uz/uploads/2026-01-15-1768452603047-blob-s2k16h.webp
    pm2 logs acoustic-backend | grep "Serving static"
    
    # Agar noto'g'ri bo'lsa, .env faylini tekshiring
-   cat /root/acoustic.uz/apps/backend/.env | grep UPLOADS_DIR
+   cat /var/www/acoustic.uz/apps/backend/.env | grep UPLOADS_DIR
    ```
 
 3. **Nginx konfiguratsiyasi**:
-   - Nginx `/uploads/` ni backend ga proxy qilishi kerak
-   - Yoki static fayllarni to'g'ridan-to'g'ri serve qilishi kerak
+   - Nginx `location /uploads/` da **alias** backend yozadigan papkaga yo‘naltirilishi kerak: `/var/www/acoustic.uz/apps/backend/uploads/` (UPLOADS_DIR bilan bir xil).
+   - Agar alias `/var/www/acoustic.uz/apps/backend/uploads/` bo‘lsa, yangi yuklangan fayllar ko‘rinmaydi (404).
 
-### Nginx konfiguratsiyasi (agar kerak bo'lsa)
+### Nginx konfiguratsiyasi (to‘g‘ri)
 
 ```nginx
 location /uploads/ {
-    alias /root/acoustic.uz/apps/backend/uploads/;
+    alias /var/www/acoustic.uz/apps/backend/uploads/;
     expires 30d;
     add_header Cache-Control "public, immutable";
 }

@@ -174,18 +174,9 @@ export default function NearbyBranches({ branches, locale, limit = 3 }: NearbyBr
         </div>
       )}
       
-      {locationError && !isLoadingLocation && (
-        <div className="mb-4 space-y-1">
-          <div className="text-xs text-muted-foreground">
-            {locale === 'ru' 
-              ? 'Не удалось определить местоположение. Показаны случайные филиалы.'
-              : 'Joylashuv aniqlanmadi. Tasodifiy filiallar ko\'rsatilmoqda.'}
-          </div>
-          {process.env.NODE_ENV === 'development' && (
-            <div className="text-xs text-red-500">
-              Debug: {locationError}
-            </div>
-          )}
+      {process.env.NODE_ENV === 'development' && locationError && !isLoadingLocation && (
+        <div className="mb-4 text-xs text-red-500">
+          Debug: {locationError}
         </div>
       )}
       

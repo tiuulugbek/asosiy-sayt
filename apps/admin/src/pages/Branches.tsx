@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   Button,
@@ -17,6 +18,10 @@ import {
   Tabs,
 } from 'antd';
 import { UploadOutlined, DeleteOutlined, PlusOutlined, FolderOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
+import ListTable from '../components/common/ListTable';
+import TableActions from '../components/common/TableActions';
 import type { UploadProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -40,13 +45,16 @@ import MediaLibraryModal from '../components/MediaLibraryModal';
 import ImageSizeHint from '../components/ImageSizeHint';
 import { normalizeImageUrl } from '../utils/image';
 import { compressImage } from '../utils/image-compression';
+import { useTableLoading } from '../hooks/useTableLoading';
 
 export default function BranchesPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: branches, isLoading } = useQuery<BranchDto[], ApiError>({
+  const { data: branches, isLoading, isFetching, isPending } = useQuery<BranchDto[], ApiError>({
     queryKey: ['branches'],
     queryFn: getBranches,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
   // Fetch media list for image selection
   const { data: mediaList } = useQuery<MediaDto[], ApiError>({
@@ -62,6 +70,7 @@ export default function BranchesPage() {
     retry: false,
   });
 
+  const [searchText, setSearchText] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<BranchDto | null>(null);
   const [form] = Form.useForm();
@@ -296,44 +305,41 @@ export default function BranchesPage() {
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right' as const,
         render: (_, record) => (
-          <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Filialni o'chirish"
-              description="Ushbu filialni o'chirishni tasdiqlang"
-              onConfirm={() => handleDelete(record)}
-              okText="Ha"
-              cancelText="Yo'q"
-            >
-              <Button danger size="small" loading={isDeleting}>
-                O'chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions onEdit={() => navigate(`/branches/${record.id}/edit`)} onDelete={() => handleDelete(record)} loading={isDeleting} />
         ),
       },
     ],
     [isDeleting],
   );
 
+  const filtered = useMemo(() => {
+    if (!searchText.trim()) return branches ?? [];
+    const q = searchText.toLowerCase();
+    return (branches ?? []).filter(
+      (b) =>
+        b.name_uz.toLowerCase().includes(q) ||
+        (b.name_ru?.toLowerCase().includes(q) ?? false) ||
+        b.address_uz.toLowerCase().includes(q) ||
+        b.phone.includes(searchText),
+    );
+  }, [branches, searchText]);
+
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>Filiallar va manzillar</h2>
-        <Button type="primary" onClick={openCreateModal} icon={<PlusOutlined />}>
-          + Yangi filial
-        </Button>
-      </div>
-      <Table
-        columns={columns}
-        dataSource={branches || []}
-        loading={isLoading}
-        rowKey="id"
-        pagination={{ pageSize: 20 }}
+      <PageHeader
+        title="Filiallar"
+        description="Filial manzillari va aloqa ma'lumotlari"
+        count={filtered.length}
+        loading={tableLoading}
+        action={<Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/branches/new')}>Yangi filial</Button>}
       />
+      <FilterPanel onClear={() => setSearchText('')}>
+        <Input placeholder="Filial nomi yoki manzil..." value={searchText} onChange={(e) => setSearchText(e.target.value)} allowClear size="large" className="min-w-[280px] flex-1" />
+      </FilterPanel>
+      <ListTable columns={columns} dataSource={filtered} loading={tableLoading} />
       <Modal
         title={editingBranch ? 'Filialni tahrirlash' : 'Yangi filial'}
         open={isModalOpen}

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { getBilingualText } from '@/lib/locale';
 import { search } from '@/lib/api';
 import type { SearchResponse } from '@/lib/api';
+import { normalizeImageUrl } from '@/lib/image-utils';
 
 interface SearchResultsProps {
   query: string;
@@ -185,7 +186,7 @@ export default function SearchResults({ query, locale }: SearchResultsProps) {
             {posts.map((post) => {
               const title = getBilingualText(post.title_uz, post.title_ru, locale);
               const excerpt = getBilingualText(post.excerpt_uz, post.excerpt_ru, locale);
-              const imageUrl = post.cover?.url || '';
+              const imageUrl = post.cover?.url ? normalizeImageUrl(post.cover.url) : '';
               
               return (
                 <Link
@@ -223,7 +224,6 @@ export default function SearchResults({ query, locale }: SearchResultsProps) {
     </div>
   );
 }
-
 
 
 

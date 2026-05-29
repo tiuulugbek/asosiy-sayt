@@ -56,7 +56,7 @@ export default function FAQAccordion({ faqs, locale }: FAQAccordionProps) {
               handleToggle(item.id);
             }
           }}
-          className="flex w-full cursor-pointer items-center justify-between gap-3 rounded text-left focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2"
+          className="flex w-full min-h-[48px] cursor-pointer items-center justify-between gap-3 rounded py-3 text-left focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2"
         >
           <span className="flex-1 text-sm font-medium text-foreground" suppressHydrationWarning>
             {item.question}

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { getSettings } from '@/lib/api';
 import { getLocaleFromDOM } from '@/lib/locale-client';
+import { getStoredUtmParams } from '@/lib/utm';
 import type { SettingsResponse } from '@/lib/api';
 import type { Locale } from '@/lib/locale';
 import { Phone } from 'lucide-react';
@@ -12,7 +14,20 @@ interface TelegramButtonProps {
   initialLocale?: Locale;
 }
 
+const debugLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(...args);
+  }
+};
+
+const debugWarn = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(...args);
+  }
+};
+
 export default function TelegramButton({ initialLocale }: TelegramButtonProps = {}) {
+  const pathname = usePathname();
   const [botUsername, setBotUsername] = useState<string | null>(null);
   const [message, setMessage] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState<string>('1385');
@@ -29,13 +44,13 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
   
   useEffect(() => {
     isMountedRef.current = true;
-    console.log('[TelegramButton] Setting mounted to true');
+    debugLog('[TelegramButton] Setting mounted to true');
     setMounted(true);
     // Only update locale on client-side after hydration
     const domLocale = getLocaleFromDOM();
-    console.log('[TelegramButton] DOM locale:', domLocale, 'current locale:', locale);
+    debugLog('[TelegramButton] DOM locale:', domLocale, 'current locale:', locale);
     if (domLocale !== locale) {
-      console.log('[TelegramButton] Updating locale from', locale, 'to', domLocale);
+      debugLog('[TelegramButton] Updating locale from', locale, 'to', domLocale);
       setLocale(domLocale);
     }
     
@@ -45,11 +60,11 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
   }, []);
 
   useEffect(() => {
-    console.log('[TelegramButton] useEffect triggered - mounted:', mounted, 'locale:', locale);
+    debugLog('[TelegramButton] useEffect triggered - mounted:', mounted, 'locale:', locale);
     
     // Only fetch settings after component is mounted
     if (!mounted) {
-      console.log('[TelegramButton] Not mounted yet, skipping fetch');
+      debugLog('[TelegramButton] Not mounted yet, skipping fetch');
       return;
     }
     
@@ -62,7 +77,7 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     
-    console.log('[TelegramButton] Starting fetchSettings with locale:', locale, 'mounted:', mounted);
+    debugLog('[TelegramButton] Starting fetchSettings with locale:', locale, 'mounted:', mounted);
     
     const fetchSettings = async () => {
       // Set loading state at the start
@@ -71,17 +86,17 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
       }
       
       try {
-        console.log('[TelegramButton] Fetching settings with locale:', locale);
+        debugLog('[TelegramButton] Fetching settings with locale:', locale);
         const settings = await getSettings(locale);
         
         // Check if component is still mounted and fetch wasn't aborted
         if (!isMountedRef.current || abortController.signal.aborted) {
-          console.log('[TelegramButton] Component unmounted or fetch aborted, skipping state update');
+          debugLog('[TelegramButton] Component unmounted or fetch aborted, skipping state update');
           return;
         }
         
-        console.log('[TelegramButton] Settings received:', settings ? 'success' : 'null');
-        console.log('[TelegramButton] Settings received:', {
+        debugLog('[TelegramButton] Settings received:', settings ? 'success' : 'null');
+        debugLog('[TelegramButton] Settings received:', {
           hasBotUsername: !!settings?.telegramButtonBotUsername,
           botUsername: settings?.telegramButtonBotUsername,
           hasMessageUz: !!settings?.telegramButtonMessage_uz,
@@ -100,22 +115,22 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
           // Remove @ if present
           const username = settings.telegramButtonBotUsername.replace('@', '');
           setBotUsername(username);
-          console.log('[TelegramButton] Bot username set:', username);
+          debugLog('[TelegramButton] Bot username set:', username);
           
           // Get message based on locale
           const messageText = locale === 'ru' 
             ? (settings.telegramButtonMessage_ru || 'Здравствуйте!\nУ вас есть вопрос?')
             : (settings.telegramButtonMessage_uz || 'Assalomu alaykum!\nSavolingiz bormi?');
           setMessage(messageText);
-          console.log('[TelegramButton] Message set:', messageText);
+          debugLog('[TelegramButton] Message set:', messageText);
         } else {
-          console.warn('[TelegramButton] No bot username in settings. Component will not render.');
+          debugWarn('[TelegramButton] No bot username in settings. Component will not render.');
           setBotUsername(null);
         }
       } catch (error) {
         // Check if error is due to abort
         if (abortController.signal.aborted) {
-          console.log('[TelegramButton] Fetch aborted');
+          debugLog('[TelegramButton] Fetch aborted');
           return;
         }
         
@@ -128,7 +143,7 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
         // Only update loading state if component is still mounted and fetch wasn't aborted
         if (isMountedRef.current && !abortController.signal.aborted) {
           setIsLoading(false);
-          console.log('[TelegramButton] Loading complete. isLoading:', false);
+          debugLog('[TelegramButton] Loading complete. isLoading:', false);
         }
       }
     };
@@ -146,7 +161,7 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
 
   // Debug logging
   useEffect(() => {
-    console.log('[TelegramButton] Render state:', {
+    debugLog('[TelegramButton] Render state:', {
       isLoading,
       botUsername,
       isChatBubbleVisible,
@@ -155,16 +170,21 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
     });
   }, [isLoading, botUsername, isChatBubbleVisible, message, locale]);
 
+  // Don't render on ramazon-chegirmasi page (buyurtma/order CTAs removed there)
+  if (pathname === '/ramazon-chegirmasi') {
+    return null;
+  }
+
   // Don't render if still loading
   if (isLoading) {
-    console.log('[TelegramButton] Still loading, not rendering');
+    debugLog('[TelegramButton] Still loading, not rendering');
     return null;
   }
 
   // If no bot username, don't render at all
   if (!botUsername) {
-    console.warn('[TelegramButton] No bot username in settings, component will not render.');
-    console.warn('[TelegramButton] Please configure telegramButtonBotUsername in admin panel settings.');
+    debugWarn('[TelegramButton] No bot username in settings, component will not render.');
+    debugWarn('[TelegramButton] Please configure telegramButtonBotUsername in admin panel settings.');
     return null;
   }
 
@@ -181,6 +201,7 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
           phone: 'N/A',
           source: 'telegram_button_click',
           message: 'User clicked Telegram button',
+          utmParams: getStoredUtmParams(),
         }),
       });
     } catch (error) {
@@ -276,7 +297,7 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
       </div>
 
       {/* Mobile: Full-width Banner */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex animate-in slide-in-from-bottom-4 fade-in">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex animate-in slide-in-from-bottom-4 fade-in pb-[env(safe-area-inset-bottom)]">
         {/* Left side: Phone number with brand color */}
         <a
           href={`tel:${phoneNumber.replace(/\s/g, '')}`}
@@ -315,4 +336,3 @@ export default function TelegramButton({ initialLocale }: TelegramButtonProps = 
     </>
   );
 }
-

@@ -4,7 +4,7 @@
 
 set -e
 
-PROJECT_ROOT="/root/acoustic.uz"
+PROJECT_ROOT="/var/www/acoustic.uz"
 
 echo "🚀 PM2 ni root dan ishga tushirish..."
 echo ""

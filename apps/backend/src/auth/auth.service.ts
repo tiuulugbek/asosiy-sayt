@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { ZodError } from 'zod';
 import { PrismaService } from '../prisma/prisma.service';
 import { loginSchema, changePasswordSchema } from '@acoustic/shared';
 import type { LoginDto, ChangePasswordDto } from './dto';
@@ -33,7 +34,7 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const { email, password } = loginSchema.parse(loginDto);
+    const { email, password } = this.parseLoginInput(loginDto);
     const user = await this.validateUser(email, password);
 
     const payload = {
@@ -64,7 +65,7 @@ export class AuthService {
   }
 
   async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
-    const { currentPassword, newPassword } = changePasswordSchema.parse(changePasswordDto);
+    const { currentPassword, newPassword } = this.parseChangePasswordInput(changePasswordDto);
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -90,6 +91,72 @@ export class AuthService {
     });
 
     return { message: 'Password changed successfully' };
+  }
+
+  async validateApiToken(token: string) {
+    const users = await this.prisma.user.findMany({
+      where: { apiTokenHash: { not: null }, isActive: true },
+      include: { role: true },
+    });
+
+    for (const user of users) {
+      const ok = await bcrypt.compare(token, user.apiTokenHash!);
+      if (ok) {
+        return {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          roleId: user.roleId,
+          role: user.role,
+          mustChangePassword: user.mustChangePassword,
+        };
+      }
+    }
+    return null;
+  }
+
+  async setApiToken(userId: string, plainToken: string) {
+    const hash = await bcrypt.hash(plainToken, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { apiTokenHash: hash },
+    });
+  }
+
+  async whoami(user: { id: string; role: { name: string } }) {
+    return {
+      id: user.id,
+      name: user.role.name,
+      role: user.role.name,
+    };
+  }
+
+  private parseLoginInput(input: LoginDto) {
+    try {
+      return loginSchema.parse(input);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          message: "Login ma'lumotlari noto'g'ri",
+          errors: error.issues,
+        });
+      }
+      throw error;
+    }
+  }
+
+  private parseChangePasswordInput(input: ChangePasswordDto) {
+    try {
+      return changePasswordSchema.parse(input);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          message: "Parol ma'lumotlari noto'g'ri",
+          errors: error.issues,
+        });
+      }
+      throw error;
+    }
   }
 
   async refreshToken(refreshToken: string) {
@@ -124,4 +191,3 @@ export class AuthService {
     }
   }
 }
-

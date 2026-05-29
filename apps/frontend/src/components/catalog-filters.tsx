@@ -51,6 +51,8 @@ interface CatalogFiltersProps {
   brands: Array<{ id: string; name: string; slug: string; count?: number }>;
   selectedBrands: string[];
   selectedBrandName?: string;
+  selectedCatalogId?: string;
+  catalogOptions?: Array<{ id: string; label: string; count: number }>;
   selectedAudience: string[];
   selectedForms: string[];
   selectedPower: string[];
@@ -63,6 +65,8 @@ interface CatalogFiltersProps {
   formFactorOptions?: FilterOption[];
   powerLevelOptions?: FilterOption[];
   hearingLossOptions?: FilterOption[];
+  selectedDiscount?: boolean;
+  discountCount?: number;
 };
 
 interface ExtendedCatalogFiltersProps extends CatalogFiltersProps {
@@ -116,6 +120,8 @@ export default function CatalogFilters({
   brands = [],
   selectedBrands,
   selectedBrandName,
+  selectedCatalogId,
+  catalogOptions = [],
   selectedAudience,
   selectedForms,
   selectedPower,
@@ -128,9 +134,10 @@ export default function CatalogFilters({
   formFactorOptions = [],
   powerLevelOptions = [],
   hearingLossOptions = [],
+  selectedDiscount = false,
+  discountCount = 0,
   searchParams = {},
 }: ExtendedCatalogFiltersProps) {
-  // Create base params from searchParams for buildFilterUrl
   const baseParams: Record<string, string | undefined> = {};
   if (searchParams) {
     Object.entries(searchParams).forEach(([key, value]) => {
@@ -141,17 +148,15 @@ export default function CatalogFilters({
       }
     });
   }
-  
-  // audienceOptions now comes from props (generated from product data)
-
-  // formFactorOptions now comes from props (generated from product data)
-
-  // hearingLossOptions now comes from props (generated from product data)
-
-  // powerLevelOptions now comes from props (generated from product data)
 
   const hasActiveFilters =
-    selectedBrands.length > 0 || selectedAudience.length > 0 || selectedForms.length > 0 || selectedPower.length > 0 || selectedLoss.length > 0;
+    selectedBrands.length > 0 ||
+    Boolean(selectedCatalogId) ||
+    selectedAudience.length > 0 ||
+    selectedForms.length > 0 ||
+    selectedPower.length > 0 ||
+    selectedLoss.length > 0 ||
+    selectedDiscount;
 
   return (
     <div className="space-y-6 rounded-2xl border border-border/60 bg-white p-6 shadow-sm">
@@ -178,26 +183,41 @@ export default function CatalogFilters({
         </FilterSection>
       ) : null}
 
-      {/* Audience Filter */}
-      {Object.values(audienceCounts).some((count) => count > 0) && (
-        <FilterSection title={locale === 'ru' ? 'Для кого' : 'Kimlar uchun'}>
-          {audienceOptions
-            .filter((option) => (audienceCounts[option.value] ?? 0) > 0)
-            .map((option) => {
-              const isSelected = selectedAudience.includes(option.value);
-              const newAudience = isSelected ? selectedAudience.filter((a) => a !== option.value) : [...selectedAudience, option.value];
-              const url = buildFilterUrl(productType || categorySlug, baseParams, { audience: newAudience.length > 0 ? newAudience.join(',') : undefined }, !!productType);
-              return (
-                <FilterCheckbox
-                  key={option.value}
-                  id={`audience-${option.value}`}
-                  label={locale === 'ru' ? option.label_ru : option.label_uz}
-                  checked={isSelected}
-                  url={url}
-                  count={audienceCounts[option.value]}
-                />
-              );
-            })}
+      {/* Chegirma filter */}
+      {discountCount > 0 && (
+        <FilterSection title={locale === 'ru' ? 'Скидка' : 'Chegirma'}>
+          <FilterCheckbox
+            id="filter-discount"
+            label={locale === 'ru' ? 'Со скидкой' : 'Chegirmali'}
+            checked={selectedDiscount}
+            url={buildFilterUrl(productType || categorySlug, baseParams, { discount: selectedDiscount ? undefined : '1' }, !!productType)}
+            count={discountCount}
+          />
+        </FilterSection>
+      )}
+
+      {/* Catalog Filter */}
+      {catalogOptions.length > 0 && (
+        <FilterSection title={locale === 'ru' ? 'Каталог' : 'Katalog'}>
+          {catalogOptions.map((option) => {
+            const isSelected = selectedCatalogId === option.id;
+            const url = buildFilterUrl(
+              productType || categorySlug,
+              baseParams,
+              { catalogId: isSelected ? undefined : option.id },
+              !!productType
+            );
+            return (
+              <FilterCheckbox
+                key={option.id}
+                id={`catalog-${option.id}`}
+                label={option.label}
+                checked={isSelected}
+                url={url}
+                count={option.count}
+              />
+            );
+          })}
         </FilterSection>
       )}
 

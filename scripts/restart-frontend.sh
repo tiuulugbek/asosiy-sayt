@@ -6,7 +6,7 @@
 
 # set -e  # Xatoliklarda ham davom etish uchun o'chirildi
 
-FRONTEND_DIR="/root/acoustic.uz/apps/frontend"
+FRONTEND_DIR="/var/www/acoustic.uz/apps/frontend"
 PM2_APP_NAME="frontend"
 PORT=3000  # Hardcode - faqat port 3000'da ishlaydi
 HOSTNAME="127.0.0.1"
@@ -144,7 +144,7 @@ TAILWIND_INSTALLED=false
 if [ -f "$FRONTEND_DIR/node_modules/.bin/tailwindcss" ] || [ -d "$FRONTEND_DIR/node_modules/tailwindcss" ]; then
     echo "✅ Tailwindcss frontend papkasida topildi!"
     TAILWIND_INSTALLED=true
-elif find /root/acoustic.uz/node_modules/.pnpm -name "tailwindcss@*" -type d 2>/dev/null | head -1 | grep -q .; then
+elif find /var/www/acoustic.uz/node_modules/.pnpm -name "tailwindcss@*" -type d 2>/dev/null | head -1 | grep -q .; then
     echo "✅ Tailwindcss root papkada topildi!"
     TAILWIND_INSTALLED=true
 else

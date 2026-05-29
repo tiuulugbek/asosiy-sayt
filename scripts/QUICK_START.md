@@ -5,7 +5,7 @@
 ### Variant 1: To'g'ridan-to'g'ri (Simple)
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 
 # 1. Backup oling (majburiy!)
 pg_dump -h localhost -U acoustic_user -d acousticwebdb > backup_$(date +%Y%m%d_%H%M%S).sql
@@ -17,7 +17,7 @@ PGPASSWORD='Acoustic##4114' psql -h localhost -U acoustic_user -d acousticwebdb 
 ### Variant 2: Interaktiv Runner (Recommended)
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 bash scripts/run-migration.sh
 ```
 
@@ -71,7 +71,7 @@ ls -lh backup_*.sql
    cat scripts/prisma-schema-update-example.prisma
    
    # Prisma generate
-   cd /root/acoustic.uz
+   cd /var/www/acoustic.uz
    npx prisma generate
    ```
 

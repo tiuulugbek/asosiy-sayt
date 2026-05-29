@@ -58,9 +58,7 @@ import { getMedia, uploadMedia, type MediaDto } from '../lib/api';
 import { normalizeImageUrl } from '../utils/image';
 import { compressImage } from '../utils/image-compression';
 import type { UploadProps } from 'antd';
-import { Image } from 'antd';
-import { Upload } from 'antd';
-import { Image } from 'antd';
+import { Image, Upload } from 'antd';
 
 const statusOptions = [
   { label: 'Nashr etilgan', value: 'published' },
@@ -72,12 +70,6 @@ const productTypeOptions = [
   { label: 'Eshitish moslamalari', value: 'hearing-aids' },
   { label: 'Qo\'shimcha mahsulotlar', value: 'accessories' },
   { label: 'Interacoustic mahsulotlari', value: 'interacoustics' },
-];
-
-const audienceOptions = [
-  { label: 'Bolalar uchun', value: 'children' },
-  { label: 'Kattalar uchun', value: 'adults' },
-  { label: 'Keksalar uchun', value: 'elderly' },
 ];
 
 const formFactorOptions = [
@@ -362,6 +354,8 @@ export default function ProductsPage() {
       description_ru: product.description_ru ?? undefined,
       price: product.price ? Number(product.price) : undefined,
       stock: product.stock ?? undefined,
+      discountPercent: product.discountPercent ?? undefined,
+      originalPrice: product.originalPrice != null ? Number(product.originalPrice) : undefined,
       brandId: product.brandId ?? product.brand?.id ?? undefined,
       // categoryId o'chirildi - Korpus turi (formFactors) ishlatiladi
       status: product.status,
@@ -397,6 +391,28 @@ export default function ProductsPage() {
         ? values.galleryIds.filter((id: string) => id && id.trim().length > 0)
         : undefined;
 
+      const rawDiscountPercent =
+        values.discountPercent === undefined || values.discountPercent === null || values.discountPercent === ''
+          ? null
+          : Number(values.discountPercent);
+      const hasActiveDiscount = rawDiscountPercent !== null && rawDiscountPercent > 0;
+
+      const normalizedDiscountPercent = hasActiveDiscount
+        ? rawDiscountPercent
+        : editingProduct
+          ? null
+          : undefined;
+
+      const normalizedOriginalPrice = hasActiveDiscount
+        ? (values.originalPrice === undefined || values.originalPrice === null || values.originalPrice === ''
+            ? editingProduct
+              ? null
+              : undefined
+            : Number(values.originalPrice))
+        : editingProduct
+          ? null
+          : undefined;
+
       const payload: CreateProductPayload = {
         name_uz: values.name_uz,
         name_ru: values.name_ru,
@@ -414,6 +430,8 @@ export default function ProductsPage() {
             : values.stock !== undefined && values.stock !== null
             ? Number(values.stock)
             : undefined,
+        discountPercent: normalizedDiscountPercent,
+        originalPrice: normalizedOriginalPrice,
         brandId: values.brandId || undefined,
         // categoryId o'chirildi - Korpus turi (formFactors) ishlatiladi
         catalogIds: values.catalogIds || [],
@@ -421,7 +439,7 @@ export default function ProductsPage() {
         specsText: values.specsText || undefined,
         galleryIds,
         galleryUrls: (values.galleryUrls || []).filter((value: string) => value && value.trim().length > 0),
-        audience: values.audience || [],
+        audience: editingProduct ? undefined : [],
         formFactors: values.formFactors || [],
         signalProcessing: values.signalProcessing || undefined,
         powerLevel: values.powerLevel || undefined,
@@ -617,6 +635,27 @@ export default function ProductsPage() {
 
           <Row gutter={16}>
             <Col span={12}>
+              <Form.Item
+                label="Chegirma %"
+                name="discountPercent"
+                extra="1–99: saytda «Chegirma» belgisi chiqadi. Bo'sh qoldiring = chegirma yo'q"
+              >
+                <InputNumber style={{ width: '100%' }} min={0} max={99} placeholder="Masalan, 10" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Eski narx (so'm)"
+                name="originalPrice"
+                extra="Chegirma bo'lganda eski narx (o'chirilgan narx ko'rsatiladi)"
+              >
+                <InputNumber style={{ width: '100%' }} min={0} placeholder="Chegirma oldingi narx" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
               <Form.Item label="Mahsulot turi" name="productType">
                 <Select
                   allowClear
@@ -664,11 +703,6 @@ export default function ProductsPage() {
           </Form.Item>
 
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Kimlar uchun" name="audience">
-                <Select mode="multiple" options={audienceOptions} placeholder="Bo‘limni tanlang" />
-              </Form.Item>
-            </Col>
             <Col span={12}>
               <Form.Item label="Korpus turi" name="formFactors">
                 <Select mode="multiple" options={formFactorOptions} placeholder="Bir yoki bir nechta" />

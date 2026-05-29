@@ -52,6 +52,9 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)',
         '2xl': '1rem',
       },
+      padding: {
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+      },
       fontFamily: {
         sans: ['Inter', 'Manrope', 'system-ui', 'sans-serif'],
       },

@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd';
+import { Button, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import ListTable from '../components/common/ListTable';
+import { useTableLoading } from '../hooks/useTableLoading';
+import TableActions from '../components/common/TableActions';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -61,11 +66,12 @@ export default function MenusPage() {
   const [form] = Form.useForm<MenuItemDto>();
   const queryClient = useQueryClient();
 
-  const { data: menu, isLoading } = useQuery<MenuDto, ApiError>({
+  const { data: menu, isLoading, isFetching, isPending } = useQuery<MenuDto, ApiError>({
     queryKey: ['menu', selectedMenu],
     queryFn: () => getMenu(selectedMenu),
     staleTime: 5 * 60 * 1000,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
   const { mutateAsync: saveMenu, isPending: isSaving } = useMutation<MenuDto, ApiError, MenuItemDto[]>({
     mutationFn: (items) => updateMenu(selectedMenu, items),
@@ -185,23 +191,10 @@ export default function MenusPage() {
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right' as const,
         render: (_, record) => (
-          <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Menyudan o‘chirish"
-              description="Ushbu elementni o‘chirishni tasdiqlang"
-              okText="Ha"
-              cancelText="Yo‘q"
-              onConfirm={() => handleDelete(record)}
-            >
-              <Button danger size="small" loading={isSaving}>
-                O‘chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions onEdit={() => openEditModal(record)} onDelete={() => handleDelete(record)} loading={isSaving} />
         ),
       },
     ],
@@ -245,7 +238,14 @@ export default function MenusPage() {
 
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
+      <PageHeader
+        title="Menyu"
+        description="Sayt navigatsiya menyusi"
+        count={items.length}
+        loading={tableLoading}
+        action={<Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>Yangi element</Button>}
+      />
+      <div className="admin-content-card mb-4 p-4">
         <Select
           options={menuOptions}
           value={selectedMenu}
@@ -254,34 +254,36 @@ export default function MenusPage() {
             setIsModalOpen(false);
             form.resetFields();
           }}
+          className="min-w-[200px]"
         />
-        <Button type="primary" onClick={openCreateModal}>
-          Yangi element
-        </Button>
-      </Space>
-
-      <Table<MenuItemDto>
-        loading={isLoading || isSaving}
-        dataSource={items}
-        columns={columns}
-        rowKey="id"
-        pagination={false}
-        expandable={{
-          expandedRowRender: (record) =>
-            record.children?.length ? (
-              <Table<MenuItemDto>
-                size="small"
-                columns={childColumns}
-                dataSource={sortMenuItems(record.children)}
-                rowKey="id"
-                pagination={false}
-              />
-            ) : (
-              <div style={{ padding: '8px 0', color: '#6b7280' }}>Ost menyu mavjud emas</div>
-            ),
-          rowExpandable: (record) => Boolean(record.children?.length),
-        }}
-      />
+      </div>
+      <div className="admin-content-card overflow-hidden">
+        <Table<MenuItemDto>
+          className="modern-table"
+          loading={tableLoading || isSaving}
+          dataSource={items}
+          columns={columns}
+          rowKey="id"
+          pagination={false}
+          locale={{ emptyText: tableLoading || isSaving ? ' ' : undefined }}
+          expandable={{
+            expandedRowRender: (record) =>
+              record.children?.length ? (
+                <Table<MenuItemDto>
+                  className="modern-table"
+                  size="small"
+                  columns={childColumns}
+                  dataSource={sortMenuItems(record.children)}
+                  rowKey="id"
+                  pagination={false}
+                />
+              ) : (
+                <div style={{ padding: '8px 0', color: '#6b7280' }}>Ost menyu mavjud emas</div>
+              ),
+            rowExpandable: (record) => Boolean(record.children?.length),
+          }}
+        />
+      </div>
 
       <Modal
         title={editingItem ? 'Menyu elementini tahrirlash' : 'Yangi menyu elementi'}

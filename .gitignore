@@ -25,6 +25,7 @@ packages/*/build/
 
 # Environment variables
 .env
+.env.ai-operator
 .env*.local
 .env.production
 .env.development
@@ -41,10 +42,13 @@ lerna-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 tsconfig.tsbuildinfo
+__pycache__/
+*.pyc
 
 # IDE
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
@@ -101,6 +105,11 @@ Thumbs.db
 ecosystem.config.js.bak
 
 # Backup files
+backups/
 *.bak
+*.bak.*
 *.backup
+*.dump
+*.sql.gz
+*.tar.gz
 *~

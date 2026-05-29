@@ -132,7 +132,7 @@ async function assignProductsToBrands() {
       path.join(process.cwd(), 'products-to-import.json'),
       path.join(process.cwd(), '..', 'products-to-import.json'),
       path.join(process.cwd(), '..', '..', 'products-to-import.json'),
-      '/root/acoustic.uz/products-to-import.json',
+      '/var/www/acoustic.uz/products-to-import.json',
     ];
     
     let jsonFilePath: string | null = null;

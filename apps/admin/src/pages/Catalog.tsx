@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Tabs,
   Table,
@@ -30,18 +31,11 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import {
-  getProductCategoriesAdmin,
-  createProductCategory,
-  updateProductCategory,
-  deleteProductCategory,
   getProductsAdmin,
   createProduct,
   updateProduct,
   deleteProduct,
   getBrands,
-  ProductCategoryDto,
-  CreateProductCategoryPayload,
-  UpdateProductCategoryPayload,
   ProductDto,
   CreateProductPayload,
   UpdateProductPayload,
@@ -64,6 +58,10 @@ import ImageSizeHint from '../components/ImageSizeHint';
 import { createSlug } from '../utils/slug';
 import { normalizeImageUrl } from '../utils/image';
 import { compressImage } from '../utils/image-compression';
+import PageHeader from '../components/common/PageHeader';
+import ListTable from '../components/common/ListTable';
+import ModernTabs from '../components/common/ModernTabs';
+import { useTableLoading } from '../hooks/useTableLoading';
 
 const statusOptions = [
   { label: 'Nashr etilgan', value: 'published' },
@@ -79,18 +77,15 @@ const productTypeOptions = [
 
 export default function CatalogPage() {
   return (
-    <Tabs
+    <div>
+      <PageHeader title="Katalog" description="Mahsulot kataloglari va mahsulotlar" />
+      <ModernTabs
       defaultActiveKey="catalogs"
       items={[
         {
           key: 'catalogs',
           label: 'Kataloglar',
           children: <CatalogManager />,
-        },
-        {
-          key: 'categories',
-          label: 'Kategoriyalar',
-          children: <CategoryManager />,
         },
         {
           key: 'products',
@@ -119,13 +114,15 @@ export default function CatalogPage() {
           ),
         },
       ]}
-    />
+      />
+    </div>
   );
 }
 
 function CatalogManager() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, isPending, error } = useQuery({
     queryKey: ['catalogs-admin'],
     queryFn: async (): Promise<CatalogDto[]> => {
       try {
@@ -149,6 +146,7 @@ function CatalogManager() {
     },
     retry: false,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
   const { data: mediaList } = useQuery({
     queryKey: ['media'],
@@ -375,7 +373,7 @@ function CatalogManager() {
         key: 'actions',
         render: (_, record) => (
           <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
+            <Button size="small" onClick={() => navigate(`/catalog/${record.id}/edit`)}>
               Tahrirlash
             </Button>
             <Popconfirm
@@ -399,13 +397,13 @@ function CatalogManager() {
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={openCreateModal}>
+        <Button type="primary" onClick={() => navigate('/catalog/new')}>
           Yangi katalog
         </Button>
       </Space>
 
-      <Table
-        loading={isLoading}
+      <ListTable
+        loading={tableLoading}
         dataSource={catalogs}
         columns={columns}
         rowKey="id"
@@ -559,243 +557,11 @@ function CatalogManager() {
   );
 }
 
-function CategoryManager() {
-  const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
-    queryKey: ['product-categories-admin'],
-    queryFn: getProductCategoriesAdmin,
-  });
-
-  const categories = data ?? [];
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editing, setEditing] = useState<ProductCategoryDto | null>(null);
-  const [form] = Form.useForm();
-
-  const { mutateAsync: createMutation, isPending: isCreating } = useMutation<
-    ProductCategoryDto,
-    ApiError,
-    CreateProductCategoryPayload
-  >({
-    mutationFn: createProductCategory,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-categories-admin'] });
-      message.success('Kategoriya saqlandi');
-    },
-    onError: (error) => message.error(error.message || 'Saqlashda xatolik'),
-  });
-
-  const { mutateAsync: updateMutation, isPending: isUpdating } = useMutation<
-    ProductCategoryDto,
-    ApiError,
-    { id: string; payload: UpdateProductCategoryPayload }
-  >({
-    mutationFn: ({ id, payload }) => updateProductCategory(id, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-categories-admin'] });
-      message.success('Kategoriya yangilandi');
-    },
-    onError: (error) => message.error(error.message || 'Yangilashda xatolik'),
-  });
-
-  const { mutateAsync: deleteMutation, isPending: isDeleting } = useMutation<void, ApiError, string>({
-    mutationFn: deleteProductCategory,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-categories-admin'] });
-      message.success('Kategoriya o‘chirildi');
-    },
-    onError: (error) => message.error(error.message || "O'chirishda xatolik"),
-  });
-
-  const openCreateModal = () => {
-    setEditing(null);
-    form.resetFields();
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (record: ProductCategoryDto) => {
-    setEditing(record);
-    form.setFieldsValue({
-      name_uz: record.name_uz,
-      name_ru: record.name_ru,
-      slug: record.slug,
-      icon: record.icon ?? undefined,
-      parentId: record.parentId ?? undefined,
-    });
-    setIsModalOpen(true);
-  };
-
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      const payload: CreateProductCategoryPayload = {
-        name_uz: values.name_uz,
-        name_ru: values.name_ru,
-        slug: values.slug,
-        icon: values.icon || undefined,
-        parentId: values.parentId || undefined,
-      };
-
-      if (editing) {
-        await updateMutation({ id: editing.id, payload });
-      } else {
-        await createMutation(payload);
-      }
-
-      setIsModalOpen(false);
-      form.resetFields();
-    } catch (error) {
-      // validation handled by antd
-    }
-  };
-
-  const handleDelete = async (record: ProductCategoryDto) => {
-    await deleteMutation(record.id);
-  };
-
-  const columns: ColumnsType<ProductCategoryDto> = useMemo(
-    () => [
-      {
-        title: 'Kategoriya (uz)',
-        dataIndex: 'name_uz',
-        key: 'name_uz',
-        render: (value: string, record) => (
-          <div>
-            <strong>{value}</strong>
-            {record.name_ru ? (
-              <div style={{ fontSize: 12, color: '#6b7280' }}>{record.name_ru}</div>
-            ) : null}
-          </div>
-        ),
-      },
-      {
-        title: 'Slug',
-        dataIndex: 'slug',
-        key: 'slug',
-      },
-      {
-        title: 'Ota kategoriya',
-        key: 'parent',
-        render: (_, record) => {
-          const parent = categories.find((cat) => cat.id === record.parentId);
-          return parent ? parent.name_uz : '—';
-        },
-      },
-      {
-        title: 'Amallar',
-        key: 'actions',
-        render: (_, record) => (
-          <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Kategoriya o‘chiriladi"
-              description="Ushbu kategoriyani o‘chirishni tasdiqlang"
-              okText="Ha"
-              cancelText="Yo‘q"
-              onConfirm={() => handleDelete(record)}
-            >
-              <Button danger size="small" loading={isDeleting}>
-                O‘chirish
-              </Button>
-            </Popconfirm>
-          </Space>
-        ),
-      },
-    ],
-    [categories, isDeleting],
-  );
-
-  const parentOptions = categories
-    .filter((cat) => !editing || cat.id !== editing.id)
-    .map((cat) => ({
-      value: cat.id,
-      label: `${cat.name_uz} — ${cat.name_ru}`,
-    }));
-
-  return (
-    <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={openCreateModal}>
-          Yangi kategoriya
-        </Button>
-      </Space>
-
-      <Table
-        loading={isLoading}
-        dataSource={categories}
-        columns={columns}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
-      />
-
-      <Modal
-        title={editing ? 'Kategoriyani tahrirlash' : 'Yangi kategoriya'}
-        open={isModalOpen}
-        onCancel={() => setIsModalOpen(false)}
-        onOk={handleSubmit}
-        confirmLoading={isCreating || isUpdating}
-        okText="Saqlash"
-        cancelText="Bekor qilish"
-      >
-        <Form layout="vertical" form={form}>
-          <Form.Item
-            label="Nomi (uz)"
-            name="name_uz"
-            rules={[{ required: true, message: 'Iltimos, kategoriya nomini kiriting' }]}
-          >
-            <Input 
-              placeholder="Masalan, Quloq apparatlari"
-              onChange={(e) => {
-                const name = e.target.value;
-                const currentSlug = form.getFieldValue('slug');
-                if (!currentSlug || currentSlug === createSlug(form.getFieldValue('name_uz') || '')) {
-                  form.setFieldsValue({ slug: createSlug(name) });
-                }
-              }}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Nomi (ru)"
-            name="name_ru"
-            rules={[{ required: true, message: 'Iltimos, kategoriya nomini kiriting' }]}
-          >
-            <Input placeholder="Например, Слуховые аппараты" />
-          </Form.Item>
-          <Form.Item
-            label="Slug"
-            name="slug"
-            rules={[{ required: true, message: 'Slug maydoni majburiy' }]}
-            extra="URL uchun qisqa nom (avtomatik yaratiladi yoki qo'lda kiriting)"
-          >
-            <Input placeholder="Avtomatik yaratiladi..." />
-          </Form.Item>
-          <Form.Item label="Ikonka (ixtiyoriy)" name="icon">
-            <Input placeholder="Ant Design ikonkasi yoki o‘z belgingiz" />
-          </Form.Item>
-          <Form.Item label="Ota kategoriya" name="parentId">
-            <Select
-              allowClear
-              options={parentOptions}
-              placeholder="Ota kategoriyani tanlang"
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </div>
-  );
-}
-
 function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedProductType, setSelectedProductType] = useState<string | undefined>(undefined);
 
-  const audienceOptions = [
-    { value: 'children', label: 'Bolalar' },
-    { value: 'adults', label: 'Kattalar' },
-    { value: 'elderly', label: 'Keksalar' },
-  ];
 
   const formFactorOptions = [
     { value: 'bte', label: 'BTE (quloq orqasida)' },
@@ -872,10 +638,11 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
     return stripped ? value : undefined;
   };
 
-  const { data: productsResponse, isLoading } = useQuery({
+  const { data: productsResponse, isLoading, isFetching, isPending } = useQuery({
     queryKey: ['products-admin', productTypeFilter],
     queryFn: () => getProductsAdmin({ limit: 1000 }), // Barcha mahsulotlarni olish
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
   
   // Extract items from paginated response and filter by productType
   // If productType is null/undefined, treat it as 'hearing-aids' (default)
@@ -890,11 +657,6 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
     }
     return allProducts;
   }, [productsResponse, productTypeFilter]);
-
-  const { data: categories } = useQuery({
-    queryKey: ['product-categories-admin'],
-    queryFn: getProductCategoriesAdmin,
-  });
 
   const { data: brands } = useQuery({
     queryKey: ['brands'],
@@ -981,6 +743,8 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
       status: 'published',
       stock: 0,
       price: undefined,
+      discountPercent: undefined,
+      originalPrice: undefined,
       audience: [],
       formFactors: undefined, // Changed to single select, so undefined instead of []
       smartphoneCompatibility: [],
@@ -1043,9 +807,10 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
       description_uz: product.description_uz,
       description_ru: product.description_ru,
       price: product.price ? Number(product.price) : undefined,
+      discountPercent: product.discountPercent ?? undefined,
+      originalPrice: product.originalPrice != null ? Number(product.originalPrice) : undefined,
       stock: product.stock ?? undefined,
       brandId: product.brandId ?? product.brand?.id ?? undefined,
-      categoryId: product.categoryId ?? product.category?.id ?? undefined,
       catalogIds: product.catalogs?.map(c => c.id) ?? [],
       status: product.status,
       specsText: product.specsText ?? undefined,
@@ -1109,6 +874,22 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
         values.usefulArticleSlugs !== undefined ? String(values.usefulArticleSlugs) : undefined,
       );
 
+      const rawDiscountPercent =
+        values.discountPercent === undefined || values.discountPercent === null || values.discountPercent === ''
+          ? null
+          : Number(values.discountPercent);
+      const hasActiveDiscount = rawDiscountPercent !== null && rawDiscountPercent > 0;
+
+      const normalizedDiscountPercent = hasActiveDiscount
+        ? rawDiscountPercent
+        : (editing ? null : undefined);
+
+      const normalizedOriginalPrice = hasActiveDiscount
+        ? (values.originalPrice === undefined || values.originalPrice === null || values.originalPrice === ''
+            ? (editing ? null : undefined)
+            : Number(values.originalPrice))
+        : (editing ? null : undefined);
+
       const payload: CreateProductPayload = {
         name_uz: values.name_uz,
         name_ru: values.name_ru,
@@ -1119,6 +900,8 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
           values.price === undefined || values.price === null || values.price === '' || (typeof values.price === 'string' && values.price.trim() === '')
             ? undefined
             : Number(values.price),
+        discountPercent: normalizedDiscountPercent,
+        originalPrice: normalizedOriginalPrice,
         stock:
           typeof values.stock === 'number'
             ? values.stock
@@ -1127,13 +910,12 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
             : undefined,
         productType: values.productType || undefined,
         brandId: values.brandId || undefined,
-        categoryId: values.categoryId || undefined,
         catalogIds: values.catalogIds || [],
         status: values.status,
         specsText: values.specsText || undefined,
         galleryIds,
         galleryUrls,
-        audience: values.audience ?? [],
+        audience: editing ? undefined : [],
         formFactors: values.formFactors ? [values.formFactors] : [], // Convert single select to array
         smartphoneCompatibility: values.smartphoneCompatibility ?? [],
         hearingLossLevels: values.hearingLossLevels ?? [],
@@ -1203,11 +985,6 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
         render: (_, record) => record.brand?.name ?? '—',
       },
       {
-        title: 'Kategoriya',
-        key: 'category',
-        render: (_, record) => record.category?.name_uz ?? '—',
-      },
-      {
         title: 'Kataloglar',
         key: 'catalogs',
         render: (_, record) => 
@@ -1241,7 +1018,7 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
         key: 'actions',
         render: (_, record) => (
           <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
+            <Button size="small" onClick={() => navigate(`/catalog/${record.catalogs?.[0]?.id ?? catalogs?.[0]?.id ?? 'new'}/products/${record.id}/edit`)}>
               Tahrirlash
             </Button>
             <Popconfirm
@@ -1262,11 +1039,6 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
     [isDeleting],
   );
 
-  const categoryOptions = (categories ?? []).map((category) => ({
-    value: category.id,
-    label: category.name_uz,
-  }));
-
   const catalogOptions = (catalogs ?? []).map((catalog) => ({
     value: catalog.id,
     label: catalog.name_uz,
@@ -1281,13 +1053,13 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={openCreateModal}>
+        <Button type="primary" onClick={() => navigate(`/catalog/${catalogs?.[0]?.id ?? 'new'}/products/new`)}>
           Yangi mahsulot
         </Button>
       </Space>
 
-      <Table
-        loading={isLoading}
+      <ListTable
+        loading={tableLoading}
         dataSource={products}
         columns={columns}
         rowKey="id"
@@ -1382,17 +1154,6 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
               />
             </Form.Item>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Form.Item label="Kategoriya" name="categoryId">
-              <Select
-                allowClear
-                placeholder="Kategoriyani tanlang (ixtiyoriy)"
-                options={categoryOptions}
-                showSearch
-                optionFilterProp="label"
-              />
-            </Form.Item>
-          </div>
           <Form.Item 
             label="Kataloglar" 
             name="catalogIds"
@@ -1448,16 +1209,22 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
                 </Form.Item>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <Form.Item 
-                  label="Kimlar uchun" 
-                  name="audience"
+                <Form.Item
+                  label="Chegirma %"
+                  name="discountPercent"
+                  extra="1–99: saytda «Chegirma» belgisi chiqadi. Bo'sh = chegirma yo'q"
                 >
-                  <Select
-                    mode="multiple"
-                    options={audienceOptions}
-                    placeholder="Bolalar, Kattalar, Keksalar"
-                  />
+                  <InputNumber style={{ width: '100%' }} min={0} max={99} placeholder="Masalan, 10" />
                 </Form.Item>
+                <Form.Item
+                  label="Eski narx (so'm)"
+                  name="originalPrice"
+                  extra="Chegirma bo'lganda eski narx (o'chirilgan narx ko'rsatiladi)"
+                >
+                  <InputNumber style={{ width: '100%' }} min={0} placeholder="Chegirma oldingi narx" />
+                </Form.Item>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <Form.Item 
                   label="Mavjudlik" 
                   name="availabilityStatus"
@@ -1496,6 +1263,22 @@ function ProductManager({ productTypeFilter }: { productTypeFilter?: string }) {
                     controls={true}
                     precision={0}
                   />
+                </Form.Item>
+                <Form.Item
+                  label="Chegirma %"
+                  name="discountPercent"
+                  extra="1–99: saytda «Chegirma» belgisi chiqadi. Bo'sh = chegirma yo'q"
+                >
+                  <InputNumber style={{ width: '100%' }} min={0} max={99} placeholder="Masalan, 10" />
+                </Form.Item>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <Form.Item
+                  label="Eski narx (so'm)"
+                  name="originalPrice"
+                  extra="Chegirma bo'lganda eski narx (o'chirilgan narx ko'rsatiladi)"
+                >
+                  <InputNumber style={{ width: '100%' }} min={0} placeholder="Chegirma oldingi narx" />
                 </Form.Item>
                 <Form.Item 
                   label="Mavjudlik" 

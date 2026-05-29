@@ -2,16 +2,100 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { productSchema } from '@acoustic/shared';
 import { Prisma } from '@prisma/client';
+import { ZodError } from 'zod';
 import * as XLSX from 'xlsx';
+
+const UPLOADS_ORIGIN = 'https://a.acoustic.uz';
+
+function normalizeImageUrl(url: string): string {
+  if (!url || typeof url !== 'string') return url;
+  const u = url.trim();
+  const pathMatch = u.match(/\/uploads\/[^?#]*/);
+  if (pathMatch) return `${UPLOADS_ORIGIN}${pathMatch[0]}`;
+  if (u.startsWith('uploads/')) return `${UPLOADS_ORIGIN}/${u}`;
+  if (u.includes('acoustic.uz') && !u.includes('a.acoustic.uz')) {
+    return u.replace(/https?:\/\/[^\/]*acoustic\.uz/g, UPLOADS_ORIGIN);
+  }
+  return u;
+}
+
+function normalizeProductUrls(product: any): any {
+  if (!product) return product;
+  const out = { ...product };
+  if (Array.isArray(out.galleryUrls)) {
+    out.galleryUrls = out.galleryUrls.map((u: string) => normalizeImageUrl(u));
+  }
+  if (out.brand?.logo?.url) {
+    out.brand = { ...out.brand, logo: { ...out.brand.logo, url: normalizeImageUrl(out.brand.logo.url) } };
+  }
+  return out;
+}
+
+function getProductRevalidationPaths(product?: { slug?: string | null; catalogs?: Array<{ slug?: string | null }> | null }): string[] {
+  const paths = new Set(['/catalog', '/ramazon-chegirmasi']);
+
+  if (product?.slug) {
+    paths.add(`/products/${product.slug}`);
+  }
+
+  product?.catalogs?.forEach((catalog) => {
+    if (catalog.slug) {
+      paths.add(`/catalog/${catalog.slug}`);
+    }
+  });
+
+  return Array.from(paths);
+}
+
+function normalizeDiscountFields(discountPercent?: number | null, originalPrice?: number | null) {
+  const activeDiscount = typeof discountPercent === 'number' && discountPercent > 0;
+
+  return {
+    discountPercent: activeDiscount ? discountPercent : null,
+    originalPrice: activeDiscount ? originalPrice ?? null : null,
+  };
+}
 
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
+  private parseProductInput(data: unknown, partial = false) {
+    try {
+      return partial ? productSchema.partial().parse(data) : productSchema.parse(data);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const details = error.errors
+          .map((e) => `${e.path.length ? e.path.join('.') + ': ' : ''}${e.message}`)
+          .join('; ');
+        throw new BadRequestException(details || 'Ma\'lumotlar noto\'g\'ri');
+      }
+      throw error;
+    }
+  }
+
+  private async revalidateProductPages(product?: { slug?: string | null; catalogs?: Array<{ slug?: string | null }> | null }) {
+    try {
+      const endpoint = process.env.FRONTEND_REVALIDATE_URL || 'https://acoustic.uz/api/revalidate';
+      const secret = process.env.REVALIDATE_SECRET || process.env.FRONTEND_REVALIDATE_SECRET;
+
+      await Promise.allSettled(
+        getProductRevalidationPaths(product).map((path) => {
+          const url = new URL(endpoint);
+          url.searchParams.set('path', path);
+          if (secret) url.searchParams.set('secret', secret);
+
+          return fetch(url, { method: 'POST' });
+        }),
+      );
+    } catch (error) {
+      console.warn('[products] Failed to revalidate product pages:', error);
+    }
+  }
+
   async findAll(filters?: {
     status?: string;
     brandId?: string;
-    categoryId?: string;
     catalogId?: string;
     productType?: string;
     search?: string;
@@ -23,14 +107,15 @@ export class ProductsService {
     smartphoneCompatibility?: string;
     paymentOption?: string;
     availabilityStatus?: string;
+    discount?: boolean; // true = faqat chegirmali mahsulotlar
     limit?: number;
     offset?: number;
     sort?: 'newest' | 'price_asc' | 'price_desc';
   }) {
     const where: Prisma.ProductWhereInput = {};
     if (filters?.status) where.status = filters.status;
+    if (filters?.discount === true) where.discountPercent = { gt: 0 };
     if (filters?.brandId) where.brandId = filters.brandId;
-    if (filters?.categoryId) where.categoryId = filters.categoryId;
     if (filters?.productType) where.productType = filters.productType;
     if (filters?.catalogId) {
       where.catalogs = {
@@ -84,7 +169,7 @@ export class ProductsService {
     // Fetch paginated products
     let items = await this.prisma.product.findMany({
       where,
-      include: { brand: true, category: true, catalogs: true },
+      include: { brand: true, catalogs: true },
       orderBy,
       take: limit,
       skip: offset,
@@ -115,8 +200,7 @@ export class ProductsService {
         };
       })
     );
-    items = itemsWithUrls;
-    // Calculate page number (1-based)
+    items = itemsWithUrls.map((item) => normalizeProductUrls(item));
     const pageSize = limit;
     const page = Math.floor(offset / pageSize) + 1;
 
@@ -131,30 +215,42 @@ export class ProductsService {
   async findOne(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { brand: true, category: true, catalogs: true },
+      include: { brand: true, catalogs: true },
     });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
-    return product;
+    return normalizeProductUrls(product);
   }
 
   async findBySlug(slug: string) {
-    const product = await this.prisma.product.findUnique({
+    let product = await this.prisma.product.findUnique({
       where: { slug, status: 'published' },
-      include: { brand: true, category: true, catalogs: true },
+      include: { brand: true, catalogs: true },
     });
 
     if (!product) {
       throw new NotFoundException('Product not found');
+    }
+
+    if (product.galleryIds && product.galleryIds.length > 0) {
+      const mediaItems = await this.prisma.media.findMany({
+        where: { id: { in: product.galleryIds } },
+        select: { id: true, url: true },
+      });
+      const urlMap = new Map(mediaItems.map((m) => [m.id, m.url]));
+      const galleryUrls = product.galleryIds
+        .map((id) => urlMap.get(id))
+        .filter((url): url is string => url !== undefined);
+      product = { ...product, galleryUrls: galleryUrls.length > 0 ? galleryUrls : (product.galleryUrls || []) };
     }
 
     const relatedProducts = product.relatedProductIds.length
       ? await this.prisma.product.findMany({
           where: { id: { in: product.relatedProductIds }, status: 'published' },
-          include: { brand: true, category: true, catalogs: true },
+          include: { brand: true, catalogs: true },
         })
       : [];
 
@@ -173,8 +269,8 @@ export class ProductsService {
       : [];
 
     return {
-      ...product,
-      relatedProducts,
+      ...normalizeProductUrls(product),
+      relatedProducts: relatedProducts.map((p) => normalizeProductUrls(p)),
       usefulArticles,
     };
   }
@@ -201,12 +297,14 @@ export class ProductsService {
   }
 
   async create(data: unknown) {
-    const validated = productSchema.parse(data);
+    const validated = this.parseProductInput(data);
 
     const uniqueSlug = await this.generateUniqueSlug(validated.slug);
 
     const catalogIds = validated.catalogIds ?? [];
     
+    const discountFields = normalizeDiscountFields(validated.discountPercent, validated.originalPrice);
+
     const createData: Prisma.ProductCreateInput = {
       name_uz: validated.name_uz,
       name_ru: validated.name_ru,
@@ -217,9 +315,6 @@ export class ProductsService {
       stock: validated.stock ?? undefined,
       brand: validated.brandId 
         ? { connect: { id: validated.brandId } }
-        : undefined,
-      category: validated.categoryId
-        ? { connect: { id: validated.categoryId } }
         : undefined,
       catalogs: catalogIds.length > 0 
         ? { connect: catalogIds.map(id => ({ id })) }
@@ -251,17 +346,29 @@ export class ProductsService {
       galleryUrls: validated.galleryUrls ?? [],
       relatedProductIds: validated.relatedProductIds ?? [],
       usefulArticleSlugs: validated.usefulArticleSlugs ?? [],
+      discountPercent: discountFields.discountPercent,
+      originalPrice: discountFields.originalPrice,
       status: validated.status ?? 'published',
     };
     
-    return this.prisma.product.create({
-      data: createData,
-      include: { brand: true, category: true, catalogs: true },
-    });
+    try {
+      const product = await this.prisma.product.create({
+        data: createData,
+        include: { brand: true, catalogs: true },
+      });
+
+      void this.revalidateProductPages(product);
+      return product;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new BadRequestException('Bu slug allaqachon mavjud. Boshqa slug tanlang.');
+      }
+      throw error;
+    }
   }
 
   async update(id: string, data: unknown) {
-    const validated = productSchema.partial().parse(data);
+    const validated = this.parseProductInput(data, true);
     const updateData: Prisma.ProductUpdateInput = {};
 
     if (validated.name_uz !== undefined) updateData.name_uz = validated.name_uz;
@@ -274,11 +381,6 @@ export class ProductsService {
     if (validated.brandId !== undefined) {
       updateData.brand = validated.brandId 
         ? { connect: { id: validated.brandId } }
-        : { disconnect: true };
-    }
-    if (validated.categoryId !== undefined) {
-      updateData.category = validated.categoryId 
-        ? { connect: { id: validated.categoryId } }
         : { disconnect: true };
     }
     if (validated.status !== undefined) updateData.status = validated.status;
@@ -341,6 +443,13 @@ export class ProductsService {
     if (validated.galleryUrls !== undefined) {
       updateData.galleryUrls = { set: validated.galleryUrls };
     }
+    if (validated.discountPercent !== undefined) {
+      const discountFields = normalizeDiscountFields(validated.discountPercent, validated.originalPrice);
+      updateData.discountPercent = discountFields.discountPercent;
+      updateData.originalPrice = discountFields.originalPrice;
+    } else if (validated.originalPrice !== undefined) {
+      updateData.originalPrice = validated.originalPrice ?? null;
+    }
     if (validated.relatedProductIds !== undefined) {
       updateData.relatedProductIds = { set: validated.relatedProductIds };
     }
@@ -355,17 +464,31 @@ export class ProductsService {
       };
     }
 
-    return this.prisma.product.update({
-      where: { id },
-      data: updateData,
-      include: { brand: true, category: true, catalogs: true },
-    });
+    try {
+      const product = await this.prisma.product.update({
+        where: { id },
+        data: updateData,
+        include: { brand: true, catalogs: true },
+      });
+
+      void this.revalidateProductPages(product);
+      return product;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new BadRequestException('Bu slug allaqachon mavjud. Boshqa slug tanlang.');
+      }
+      throw error;
+    }
   }
 
   async delete(id: string) {
-    return this.prisma.product.delete({
+    const product = await this.prisma.product.delete({
       where: { id },
+      include: { catalogs: true },
     });
+
+    void this.revalidateProductPages(product);
+    return product;
   }
 
   async importFromExcel(fileBuffer: Buffer): Promise<{
@@ -437,8 +560,6 @@ export class ProductsService {
           status: row['status'] || row['Статус'] || row['Holat'] || 'published',
           brandId: row['brandId'] || row['brand_id'] || null,
           brandName: row['brandName'] || row['brand_name'] || row['Бренд'] || row['Brend'] || null,
-          categoryId: row['categoryId'] || row['category_id'] || null,
-          categorySlug: row['categorySlug'] || row['category_slug'] || row['Категория'] || row['Kategoriya'] || null,
           catalogIds: row['catalogIds'] || row['catalog_ids'] || null,
           catalogSlugs: row['catalogSlugs'] || row['catalog_slugs'] || null,
           audience: parseArray(row['audience'] || row['Аудитория'] || row['Auditoriya']),
@@ -484,17 +605,6 @@ export class ProductsService {
           }
         }
 
-        // Lookup category if categorySlug provided
-        if (productData.categorySlug && !productData.categoryId) {
-          const category = await this.prisma.productCategory.findFirst({
-            where: {
-              slug: { contains: productData.categorySlug, mode: 'insensitive' } },
-          });
-          if (category) {
-            productData.categoryId = category.id;
-          }
-        }
-
         // Lookup catalogs if catalogSlugs provided
         if (productData.catalogSlugs && !productData.catalogIds) {
           const slugs = parseArray(productData.catalogSlugs);
@@ -512,7 +622,6 @@ export class ProductsService {
 
         // Remove helper fields
         delete productData.brandName;
-        delete productData.categorySlug;
         delete productData.catalogSlugs;
 
         // Validate and create product
@@ -551,7 +660,6 @@ export class ProductsService {
       'stock',
       'status',
       'brandName',
-      'categorySlug',
       'catalogSlugs',
       'audience',
       'formFactors',

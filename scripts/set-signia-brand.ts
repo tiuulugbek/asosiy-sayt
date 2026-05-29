@@ -95,7 +95,7 @@ async function setSigniaBrand() {
       path.join(process.cwd(), '..', 'products-to-import.json'), // Bir daraja yuqoridan
       path.join(process.cwd(), '..', '..', 'products-to-import.json'), // Ildizdan (apps/backend dan)
       path.join(scriptDir, '..', 'products-to-import.json'), // Script papkasidan
-      '/root/acoustic.uz/products-to-import.json', // To'g'ridan-to'g'ri yo'l
+      '/var/www/acoustic.uz/products-to-import.json', // To'g'ridan-to'g'ri yo'l
     ];
     
     let jsonFilePath: string | null = null;

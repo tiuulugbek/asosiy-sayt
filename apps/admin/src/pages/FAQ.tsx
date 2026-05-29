@@ -1,23 +1,25 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Table,
   Button,
-  Space,
-  Tag,
   Modal,
   Form,
   Input,
   InputNumber,
   Select,
-  Popconfirm,
+  Collapse,
   message,
 } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
+import ListTable from '../components/common/ListTable';
+import TableActions from '../components/common/TableActions';
+import StatusTag from '../components/common/StatusTag';
+import LangTabs from '../components/common/LangTabs';
+import { useTableLoading } from '../hooks/useTableLoading';
 import {
   getFaqsAdmin,
   createFaq,
@@ -30,19 +32,28 @@ import {
 } from '../lib/api';
 
 const statusOptions = [
-  { label: 'Nashr etilgan', value: 'published' },
-  { label: 'Qoralama', value: 'draft' },
-  { label: 'Arxiv', value: 'archived' },
+  { label: 'Barchasi', value: '' },
+  { label: 'Published', value: 'published' },
+  { label: 'Draft', value: 'draft' },
+  { label: 'Archived', value: 'archived' },
 ];
 
-export default function FAQPage() {
-  const queryClient = useQueryClient();
+function truncate(text: string, len = 80) {
+  return text.length > len ? `${text.slice(0, len)}…` : text;
+}
 
-  const { data: faqs, isLoading } = useQuery<FaqDto[], ApiError>({
+export default function FAQPage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: faqs, isLoading, isFetching, isPending } = useQuery<FaqDto[], ApiError>({
     queryKey: ['faqs-admin'],
     queryFn: getFaqsAdmin,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [showPreview, setShowPreview] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFaq, setEditingFaq] = useState<FaqDto | null>(null);
   const [form] = Form.useForm();
@@ -73,18 +84,29 @@ export default function FAQPage() {
     mutationFn: deleteFaq,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['faqs-admin'] });
-      message.success('Savol-javob o\'chirildi');
+      message.success("Savol-javob o'chirildi");
     },
     onError: (error) => message.error(error.message || "O'chirishda xatolik"),
   });
 
+  const filtered = useMemo(() => {
+    return (faqs ?? []).filter((f) => {
+      if (statusFilter && f.status !== statusFilter) return false;
+      if (!searchText.trim()) return true;
+      const q = searchText.toLowerCase();
+      return f.question_uz.toLowerCase().includes(q) || f.question_ru.toLowerCase().includes(q);
+    });
+  }, [faqs, searchText, statusFilter]);
+
+  const publishedFaqs = useMemo(
+    () => (faqs ?? []).filter((f) => f.status === 'published').sort((a, b) => a.order - b.order),
+    [faqs],
+  );
+
   const openCreateModal = () => {
     setEditingFaq(null);
     form.resetFields();
-    form.setFieldsValue({
-      status: 'published',
-      order: 0,
-    });
+    form.setFieldsValue({ status: 'published', order: 0 });
     setIsModalOpen(true);
   };
 
@@ -101,34 +123,23 @@ export default function FAQPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (faq: FaqDto) => {
-    await deleteMutation(faq.id);
-  };
-
   const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-
-      const payload: CreateFaqPayload = {
-        question_uz: values.question_uz,
-        question_ru: values.question_ru,
-        answer_uz: values.answer_uz,
-        answer_ru: values.answer_ru,
-        order: values.order ?? 0,
-        status: values.status ?? 'published',
-      };
-
-      if (editingFaq) {
-        await updateMutation({ id: editingFaq.id, payload });
-      } else {
-        await createMutation(payload);
-      }
-
-      setIsModalOpen(false);
-      form.resetFields();
-    } catch (error) {
-      // validation handled by antd
+    const values = await form.validateFields();
+    const payload: CreateFaqPayload = {
+      question_uz: values.question_uz,
+      question_ru: values.question_ru,
+      answer_uz: values.answer_uz,
+      answer_ru: values.answer_ru,
+      order: values.order ?? 0,
+      status: values.status ?? 'published',
+    };
+    if (editingFaq) {
+      await updateMutation({ id: editingFaq.id, payload });
+    } else {
+      await createMutation(payload);
     }
+    setIsModalOpen(false);
+    form.resetFields();
   };
 
   const columns: ColumnsType<FaqDto> = useMemo(
@@ -137,80 +148,97 @@ export default function FAQPage() {
         title: 'Savol (uz)',
         dataIndex: 'question_uz',
         key: 'question_uz',
-        render: (value: string) => (
-          <div style={{ maxWidth: 300 }}>
-            <strong>{value}</strong>
-          </div>
-        ),
+        render: (v: string) => <span title={v}>{truncate(v)}</span>,
       },
       {
         title: 'Savol (ru)',
         dataIndex: 'question_ru',
         key: 'question_ru',
-        render: (value: string) => (
-          <div style={{ maxWidth: 300 }}>
-            <strong>{value}</strong>
-          </div>
-        ),
+        render: (v: string) => <span title={v}>{truncate(v)}</span>,
       },
-      {
-        title: 'Tartib',
-        dataIndex: 'order',
-        key: 'order',
-        width: 80,
-      },
+      { title: 'Tartib', dataIndex: 'order', key: 'order', width: 80 },
       {
         title: 'Holat',
         dataIndex: 'status',
         key: 'status',
         width: 120,
-        render: (value: FaqDto['status']) => {
-          const color = value === 'published' ? 'green' : value === 'draft' ? 'orange' : 'default';
-          return <Tag color={color}>{value}</Tag>;
-        },
+        render: (s: string) => <StatusTag status={s} />,
       },
       {
         title: 'Amallar',
         key: 'actions',
-        width: 150,
+        width: 100,
+        fixed: 'right',
         render: (_, record) => (
-          <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Savol-javob o'chiriladi"
-              description="Ushbu savol-javobni o'chirishni tasdiqlang"
-              okText="Ha"
-              cancelText="Yo'q"
-              onConfirm={() => handleDelete(record)}
-            >
-              <Button danger size="small" loading={isDeleting}>
-                O'chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions
+            onEdit={() => navigate(`/faq/${record.id}/edit`)}
+            onDelete={() => deleteMutation(record.id)}
+            loading={isDeleting}
+          />
         ),
       },
     ],
-    [isDeleting],
+    [isDeleting, deleteMutation],
   );
 
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={openCreateModal}>
-          Yangi savol-javob
-        </Button>
-      </Space>
-
-      <Table
-        loading={isLoading}
-        dataSource={faqs ?? []}
-        columns={columns}
-        rowKey="id"
-        pagination={{ pageSize: 20 }}
+      <PageHeader
+        title="Savol-Javob"
+        description="Tez-tez beriladigan savollar"
+        count={filtered.length}
+        loading={tableLoading}
+        action={
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/faq/new')}>
+            Yangi savol
+          </Button>
+        }
       />
+
+      {showPreview && publishedFaqs.length > 0 && (
+        <div className="admin-content-card mb-6 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--admin-text)]">Saytda ko'rinishi (preview)</h3>
+          <Collapse
+            items={publishedFaqs.map((f) => ({
+              key: f.id,
+              label: f.question_uz,
+              children: <p className="whitespace-pre-wrap text-sm text-[var(--admin-text-muted)]">{f.answer_uz}</p>,
+            }))}
+          />
+        </div>
+      )}
+
+      <div className="mb-4">
+        <Button type="link" onClick={() => setShowPreview(!showPreview)}>
+          {showPreview ? 'Preview yashirish' : 'FAQ ni preview qilish'}
+        </Button>
+      </div>
+
+      <FilterPanel
+        onClear={() => {
+          setSearchText('');
+          setStatusFilter('');
+        }}
+      >
+        <Input
+          placeholder="Savol bo'yicha qidirish..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          allowClear
+          size="large"
+          className="min-w-[240px] flex-1"
+        />
+        <Select
+          placeholder="Holat"
+          value={statusFilter || undefined}
+          onChange={(v) => setStatusFilter(v ?? '')}
+          allowClear
+          options={statusOptions.filter((o) => o.value !== '')}
+          className="min-w-[140px]"
+        />
+      </FilterPanel>
+
+      <ListTable loading={tableLoading} dataSource={filtered} columns={columns} />
 
       <Modal
         title={editingFaq ? 'Savol-javobni tahrirlash' : 'Yangi savol-javob'}
@@ -218,45 +246,46 @@ export default function FAQPage() {
         onCancel={() => setIsModalOpen(false)}
         onOk={handleSubmit}
         confirmLoading={isCreating || isUpdating}
-        width={800}
+        width={720}
         okText="Saqlash"
         cancelText="Bekor qilish"
       >
         <Form layout="vertical" form={form}>
-          <Form.Item
-            label="Savol (uz)"
-            name="question_uz"
-            rules={[{ required: true, message: 'Iltimos, savolni kiriting' }]}
-          >
-            <Input.TextArea rows={2} placeholder="Masalan, Eshitish apparati qanday ishlaydi?" />
-          </Form.Item>
-          <Form.Item
-            label="Savol (ru)"
-            name="question_ru"
-            rules={[{ required: true, message: 'Iltimos, savolni kiriting' }]}
-          >
-            <Input.TextArea rows={2} placeholder="Например, Как работает слуховой аппарат?" />
-          </Form.Item>
-          <Form.Item
-            label="Javob (uz)"
-            name="answer_uz"
-            rules={[{ required: true, message: 'Iltimos, javobni kiriting' }]}
-          >
-            <Input.TextArea rows={4} placeholder="Batafsil javob..." />
-          </Form.Item>
-          <Form.Item
-            label="Javob (ru)"
-            name="answer_ru"
-            rules={[{ required: true, message: 'Iltimos, javobni kiriting' }]}
-          >
-            <Input.TextArea rows={4} placeholder="Подробный ответ..." />
-          </Form.Item>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <LangTabs>
+            {(lang) =>
+              lang === 'uz' ? (
+                <>
+                  <Form.Item label="Savol" name="question_uz" rules={[{ required: true }]}>
+                    <Input.TextArea rows={2} />
+                  </Form.Item>
+                  <Form.Item label="Javob" name="answer_uz" rules={[{ required: true }]}>
+                    <Input.TextArea rows={4} />
+                  </Form.Item>
+                </>
+              ) : (
+                <>
+                  <Form.Item label="Savol" name="question_ru" rules={[{ required: true }]}>
+                    <Input.TextArea rows={2} />
+                  </Form.Item>
+                  <Form.Item label="Javob" name="answer_ru" rules={[{ required: true }]}>
+                    <Input.TextArea rows={4} />
+                  </Form.Item>
+                </>
+              )
+            }
+          </LangTabs>
+          <div className="mt-4 grid grid-cols-2 gap-4">
             <Form.Item label="Tartib" name="order">
-              <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+              <InputNumber className="w-full" min={0} />
             </Form.Item>
-            <Form.Item label="Holat" name="status" initialValue="published">
-              <Select options={statusOptions} />
+            <Form.Item label="Holat" name="status">
+              <Select
+                options={[
+                  { label: 'Published', value: 'published' },
+                  { label: 'Draft', value: 'draft' },
+                  { label: 'Archived', value: 'archived' },
+                ]}
+              />
             </Form.Item>
           </div>
         </Form>
@@ -264,4 +293,3 @@ export default function FAQPage() {
     </div>
   );
 }
-

@@ -17,6 +17,7 @@ import {
   InputNumber,
   Tabs,
   Switch,
+  ColorPicker,
 } from 'antd';
 import { UploadOutlined, DeleteOutlined, SaveOutlined, FolderOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
@@ -37,6 +38,8 @@ import {
 import MediaLibraryModal from '../components/MediaLibraryModal';
 import ImageSizeHint from '../components/ImageSizeHint';
 import { normalizeImageUrl } from '../utils/image';
+import HomepagePage from './Homepage';
+import PageHeader from '../components/common/PageHeader';
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -618,8 +621,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '24px' }}>Sozlamalar</h2>
-      
+      <PageHeader title="Sozlamalar" description="Sayt umumiy sozlamalari va integratsiyalar" />
       <Tabs
         defaultActiveKey="general"
         items={[
@@ -657,15 +659,17 @@ export default function SettingsPage() {
                   <Form.Item
                     label="Asosiy rang (Brand Primary)"
                     name="brandPrimary"
+                    getValueFromEvent={(color) => color.toHexString()}
                   >
-                    <Input type="color" style={{ width: '100%', height: '40px' }} />
+                    <ColorPicker showText format="hex" />
                   </Form.Item>
 
                   <Form.Item
                     label="Ikkinchi rang (Brand Accent)"
                     name="brandAccent"
+                    getValueFromEvent={(color) => color.toHexString()}
                   >
-                    <Input type="color" style={{ width: '100%', height: '40px' }} />
+                    <ColorPicker showText format="hex" />
                   </Form.Item>
 
 
@@ -1174,16 +1178,7 @@ export default function SettingsPage() {
           {
             key: 'homepage-content',
             label: 'Bosh sahifa kontenti',
-            children: (
-              <Card>
-                <Alert
-                  message="Bosh sahifa kontenti"
-                  description="Bu bo'lim hozircha mavjud emas. Keyingi versiyada qo'shiladi."
-                  type="info"
-                  showIcon
-                />
-              </Card>
-            ),
+            children: <HomepagePage />,
           },
           {
             key: 'social-media',

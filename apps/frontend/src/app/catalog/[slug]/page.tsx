@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-// Removed notFound import - we never crash, always show UI
+import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { type ProductResponse, type BrandResponse, type ProductCategoryResponse } from '@/lib/api';
 import { getProducts, getCategoryBySlug, getCatalogBySlug, getBrands, getPosts, type ProductListResponse, type CatalogResponse } from '@/lib/api-server';
@@ -8,9 +8,12 @@ import CatalogFilters from '@/components/catalog-filters';
 import CatalogSort from '@/components/catalog-sort';
 import CatalogBrandChips from '@/components/catalog-brand-chips';
 import CatalogPagination from '@/components/catalog-pagination';
+import CatalogMobileFilterDrawer from '@/components/catalog-mobile-filter-drawer';
+import Script from 'next/script';
 import { detectLocale } from '@/lib/locale-server';
 import { getBilingualText } from '@/lib/locale';
 import { normalizeImageUrl } from '@/lib/image-utils';
+import { getCatalogSlugRedirect } from '@/lib/slug-aliases';
 
 // Force dynamic rendering to ensure locale is always read from cookies
 // This prevents Next.js from caching the page with a stale locale
@@ -34,6 +37,26 @@ interface CatalogCategoryPageProps {
 }
 
 const PRODUCTS_PER_PAGE = 12;
+
+function buildItemListSchema(name: string, numberOfItems: number) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name,
+    numberOfItems,
+  };
+}
+
+function ItemListJsonLd({ name, numberOfItems }: { name: string; numberOfItems: number }) {
+  return (
+    <Script
+      id="itemlist-jsonld"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(buildItemListSchema(name, numberOfItems)) }}
+    />
+  );
+}
+
 
 
 function formatPrice(price?: string | null) {
@@ -76,12 +99,12 @@ function calculateFacetCounts(products: ProductResponse[]) {
     }
 
     // Audience counts
-    product.audience.forEach((audience) => {
+    (product.audience ?? []).forEach((audience) => {
       audienceCounts[audience] = (audienceCounts[audience] || 0) + 1;
     });
 
     // Form factor counts
-    product.formFactors.forEach((form) => {
+    (product.formFactors ?? []).forEach((form) => {
       formCounts[form] = (formCounts[form] || 0) + 1;
     });
 
@@ -91,7 +114,7 @@ function calculateFacetCounts(products: ProductResponse[]) {
     }
 
     // Hearing loss level counts
-    product.hearingLossLevels.forEach((loss) => {
+    (product.hearingLossLevels ?? []).forEach((loss) => {
       lossCounts[loss] = (lossCounts[loss] || 0) + 1;
     });
   });
@@ -136,7 +159,12 @@ export async function generateMetadata({ params }: CatalogCategoryPageProps): Pr
 
 export default async function CatalogCategoryPage({ params, searchParams }: CatalogCategoryPageProps) {
   const locale = detectLocale();
-  
+
+  const legacyCatalogRedirect = getCatalogSlugRedirect(params.slug);
+  if (legacyCatalogRedirect) {
+    redirect(legacyCatalogRedirect);
+  }
+
   // Check if slug is a brand slug
   const [brands, postsData] = await Promise.all([
     getBrands(locale),
@@ -176,12 +204,16 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
   const filterType = catalog ? 'catalog' : category ? 'category' : null;
   const filterId = catalog?.id || category?.id || null;
 
-  // If both catalog and category are null (or it's a brand), show all products instead of error
+  if (!catalog && !category && !brand) {
+    notFound();
+  }
+
+  // If both catalog and category are null for a known brand, show brand-filtered products.
   // This handles cases where homepage links to catalogs/categories that don't exist yet
   // Users can still browse all products and use filters
   // NOTE: For P0, we still use client-side filtering for the fallback case
   // This will be improved in P1 when backend supports multi-value filters
-  if (!catalog && !category) {
+  if (!catalog && !category && brand) {
     // For P0: Fetch all products to show when category doesn't exist
     // TODO (P1): Use backend pagination with filters once backend supports it
     const allProductsResponse = await getProducts({ 
@@ -208,10 +240,14 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
       filteredProducts = filteredProducts.filter((p) => p.brand && selectedBrands.includes(p.brand.slug));
     }
     if (selectedAudience.length > 0) {
-      filteredProducts = filteredProducts.filter((p) => selectedAudience.some((a) => p.audience.includes(a)));
+      filteredProducts = filteredProducts.filter((p) =>
+        selectedAudience.some((a) => (p.audience ?? []).includes(a)),
+      );
     }
     if (selectedForms.length > 0) {
-      filteredProducts = filteredProducts.filter((p) => selectedForms.some((f) => p.formFactors.includes(f)));
+      filteredProducts = filteredProducts.filter((p) =>
+        selectedForms.some((f) => (p.formFactors ?? []).includes(f)),
+      );
     }
     if (selectedSignal.length > 0) {
       filteredProducts = filteredProducts.filter((p) => p.signalProcessing && selectedSignal.includes(p.signalProcessing));
@@ -220,7 +256,9 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
       filteredProducts = filteredProducts.filter((p) => p.powerLevel && selectedPower.includes(p.powerLevel));
     }
     if (selectedLoss.length > 0) {
-      filteredProducts = filteredProducts.filter((p) => selectedLoss.some((l) => p.hearingLossLevels.includes(l)));
+      filteredProducts = filteredProducts.filter((p) =>
+        selectedLoss.some((l) => (p.hearingLossLevels ?? []).includes(l)),
+      );
     }
 
     // Client-side pagination (P0 fallback - will be removed in P1)
@@ -249,9 +287,11 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
 
     // Show all products when category doesn't exist
     const brandName = brand ? (brand.name || '') : '';
+    const listName = brand ? brandName : (locale === 'ru' ? 'Все товары' : 'Barcha mahsulotlar');
     
     return (
       <main className="min-h-screen bg-background">
+        <ItemListJsonLd name={listName} numberOfItems={totalItems} />
         {/* Breadcrumbs */}
         <section className="bg-muted/40">
           <div className="mx-auto max-w-6xl px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:px-6">
@@ -294,9 +334,9 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
         {/* Main Content - reuse same layout as category page */}
         <section className="bg-white py-8">
           <div className="mx-auto max-w-6xl px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+            <div className="grid gap-6 md:grid-cols-[280px_1fr]">
               {/* Filter Sidebar */}
-              <aside className="hidden lg:block space-y-6">
+              <aside className="hidden md:block space-y-6">
                 <CatalogFilters
                   categorySlug={params.slug}
                   locale={locale}
@@ -315,6 +355,22 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
               </aside>
 
               {/* Product Grid */}
+                            <CatalogMobileFilterDrawer
+                  categorySlug={params.slug}
+                  locale={locale}
+                  brands={brand ? [] : availableBrands}
+                  selectedBrands={selectedBrands}
+                  selectedBrandName={brand ? brandName : undefined}
+                  selectedAudience={selectedAudience}
+                  selectedForms={selectedForms}
+                  selectedPower={selectedPower}
+                  selectedLoss={selectedLoss}
+                  audienceCounts={audienceCounts}
+                  formCounts={formCounts}
+                  powerCounts={powerCounts}
+                  lossCounts={lossCounts}
+                />
+
               <div className="space-y-6">
                 {/* Brand Chips - only show if not a brand page */}
                 {!brand && availableBrands.length > 0 && (
@@ -342,6 +398,14 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
                         const rawImage = product.galleryUrls?.[0] ?? product.brand?.logo?.url ?? '';
                         const mainImage = rawImage ? normalizeImageUrl(rawImage) : placeholderImage;
                         const priceFormatted = formatPrice(product.price);
+                        const hasDiscount = (product.discountPercent ?? 0) > 0;
+                        const currentPrice = product.price ? Number(product.price) : null;
+                        const originalPriceValue = product.originalPrice != null && product.originalPrice !== ''
+                          ? Number(product.originalPrice)
+                          : hasDiscount && currentPrice != null
+                            ? Math.round(currentPrice / (1 - (product.discountPercent ?? 0) / 100))
+                            : null;
+                        const originalPriceFormatted = originalPriceValue != null ? formatPrice(String(originalPriceValue)) : null;
                         const availability = product.availabilityStatus ? availabilityMap[product.availabilityStatus] : undefined;
                         const productName = getBilingualText(product.name_uz, product.name_ru, locale);
 
@@ -381,8 +445,11 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
                                 </p>
                               )}
                               {priceFormatted && (
-                                <span className="inline-flex items-center text-xs sm:text-sm font-medium text-brand-primary mt-auto" suppressHydrationWarning>
-                                  <span className="font-bold">{locale === 'ru' ? 'Цена' : 'Narxi'}: </span>{priceFormatted}
+                                <span className="inline-flex flex-col gap-0.5 text-xs sm:text-sm font-medium text-brand-primary mt-auto" suppressHydrationWarning>
+                                  {hasDiscount && originalPriceFormatted && (
+                                    <span className="text-muted-foreground line-through">{originalPriceFormatted}</span>
+                                  )}
+                                  <span><span className="font-bold">{locale === 'ru' ? 'Цена' : 'Narxi'}: </span>{priceFormatted}</span>
                                 </span>
                               )}
                             </div>
@@ -477,6 +544,7 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
 
     return (
       <main className="min-h-screen bg-background">
+        <ItemListJsonLd name={catalogName} numberOfItems={totalItems} />
         {/* Breadcrumbs */}
         <section className="bg-muted/40">
           <div className="mx-auto max-w-6xl px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:px-6">
@@ -509,9 +577,9 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
         {/* Main Content */}
         <section className="bg-white py-8">
           <div className="mx-auto max-w-6xl px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+            <div className="grid gap-6 md:grid-cols-[280px_1fr]">
               {/* Filter Sidebar */}
-              <aside className="hidden lg:block space-y-6">
+              <aside className="hidden md:block space-y-6">
                 <CatalogFilters
                   categorySlug={params.slug}
                   locale={locale}
@@ -574,6 +642,20 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
               </aside>
 
               {/* Product Grid */}
+              <CatalogMobileFilterDrawer
+                categorySlug={params.slug}
+                locale={locale}
+                brands={availableBrands}
+                selectedBrands={searchParams.brand?.split(',').filter(Boolean) ?? []}
+                selectedAudience={searchParams.audience?.split(',').filter(Boolean) ?? []}
+                selectedForms={searchParams.form?.split(',').filter(Boolean) ?? []}
+                selectedPower={searchParams.power?.split(',').filter(Boolean) ?? []}
+                selectedLoss={searchParams.loss?.split(',').filter(Boolean) ?? []}
+                audienceCounts={audienceCounts}
+                formCounts={formCounts}
+                powerCounts={powerCounts}
+                lossCounts={lossCounts}
+              />
               <div className="space-y-6">
                 {/* Brand Chips - only show if not a brand page */}
                 {!brand && availableBrands.length > 0 && (
@@ -601,6 +683,14 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
                         const rawImage = product.galleryUrls?.[0] ?? product.brand?.logo?.url ?? '';
                         const mainImage = rawImage ? normalizeImageUrl(rawImage) : placeholderImage;
                         const priceFormatted = formatPrice(product.price);
+                        const hasDiscount = (product.discountPercent ?? 0) > 0;
+                        const currentPrice = product.price ? Number(product.price) : null;
+                        const originalPriceValue = product.originalPrice != null && product.originalPrice !== ''
+                          ? Number(product.originalPrice)
+                          : hasDiscount && currentPrice != null
+                            ? Math.round(currentPrice / (1 - (product.discountPercent ?? 0) / 100))
+                            : null;
+                        const originalPriceFormatted = originalPriceValue != null ? formatPrice(String(originalPriceValue)) : null;
                         const availability = product.availabilityStatus ? availabilityMap[product.availabilityStatus] : undefined;
                         const productName = getBilingualText(product.name_uz, product.name_ru, locale);
 
@@ -640,8 +730,11 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
                                 </p>
                               )}
                               {priceFormatted && (
-                                <span className="inline-flex items-center text-xs sm:text-sm font-medium text-brand-primary mt-auto" suppressHydrationWarning>
-                                  <span className="font-bold">{locale === 'ru' ? 'Цена' : 'Narxi'}: </span>{priceFormatted}
+                                <span className="inline-flex flex-col gap-0.5 text-xs sm:text-sm font-medium text-brand-primary mt-auto" suppressHydrationWarning>
+                                  {hasDiscount && originalPriceFormatted && (
+                                    <span className="text-muted-foreground line-through">{originalPriceFormatted}</span>
+                                  )}
+                                  <span><span className="font-bold">{locale === 'ru' ? 'Цена' : 'Narxi'}: </span>{priceFormatted}</span>
                                 </span>
                               )}
                             </div>
@@ -650,10 +743,11 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
                       })}
                     </div>
                     <CatalogPagination
+                      categorySlug={params.slug}
+                      locale={locale}
                       currentPage={currentPage}
                       totalPages={totalPages}
-                      href={`/catalog/${params.slug}`}
-                      searchParams={searchParams}
+                      totalItems={totalItems}
                     />
                   </>
                 ) : (
@@ -763,10 +857,14 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
       filteredProducts = filteredProducts.filter((p) => p.brand && selectedBrands.includes(p.brand.slug));
     }
     if (selectedAudience.length > 0) {
-      filteredProducts = filteredProducts.filter((p) => selectedAudience.some((a) => p.audience.includes(a)));
+      filteredProducts = filteredProducts.filter((p) =>
+        selectedAudience.some((a) => (p.audience ?? []).includes(a)),
+      );
     }
     if (selectedForms.length > 0) {
-      filteredProducts = filteredProducts.filter((p) => selectedForms.some((f) => p.formFactors.includes(f)));
+      filteredProducts = filteredProducts.filter((p) =>
+        selectedForms.some((f) => (p.formFactors ?? []).includes(f)),
+      );
     }
     if (selectedSignal.length > 0) {
       filteredProducts = filteredProducts.filter((p) => p.signalProcessing && selectedSignal.includes(p.signalProcessing));
@@ -775,7 +873,9 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
       filteredProducts = filteredProducts.filter((p) => p.powerLevel && selectedPower.includes(p.powerLevel));
     }
     if (selectedLoss.length > 0) {
-      filteredProducts = filteredProducts.filter((p) => selectedLoss.some((l) => p.hearingLossLevels.includes(l)));
+      filteredProducts = filteredProducts.filter((p) =>
+        selectedLoss.some((l) => (p.hearingLossLevels ?? []).includes(l)),
+      );
     }
 
     // Client-side pagination (P0 - will move to backend in P1)
@@ -903,9 +1003,9 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
   )}`;
 
   const categoryName = getBilingualText(category.name_uz, category.name_ru, locale);
-
   return (
     <main className="min-h-screen bg-background">
+      <ItemListJsonLd name={categoryName} numberOfItems={totalItems} />
       {/* Breadcrumbs */}
       <section className="bg-muted/40">
         <div className="mx-auto max-w-6xl px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:px-6">
@@ -938,9 +1038,8 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
       {/* Main Content */}
       <section className="bg-white py-8">
         <div className="mx-auto max-w-6xl px-4 md:px-6">
-          <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-            {/* Filter Sidebar */}
-            <aside className="hidden lg:block space-y-6">
+          <div className="grid gap-6 md:grid-cols-[280px_1fr]">
+<aside className="hidden md:block space-y-6">
               <CatalogFilters
                 categorySlug={params.slug}
                 locale={locale}
@@ -1003,6 +1102,20 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
             </aside>
 
             {/* Product Grid */}
+            <CatalogMobileFilterDrawer
+              categorySlug={params.slug}
+              locale={locale}
+              brands={availableBrands}
+              selectedBrands={searchParams.brand?.split(',').filter(Boolean) ?? []}
+              selectedAudience={searchParams.audience?.split(',').filter(Boolean) ?? []}
+              selectedForms={searchParams.form?.split(',').filter(Boolean) ?? []}
+              selectedPower={searchParams.power?.split(',').filter(Boolean) ?? []}
+              selectedLoss={searchParams.loss?.split(',').filter(Boolean) ?? []}
+              audienceCounts={audienceCounts}
+              formCounts={formCounts}
+              powerCounts={powerCounts}
+              lossCounts={lossCounts}
+            />
             <div className="space-y-6">
               {/* Brand Chips */}
               {availableBrands.length > 0 && (
@@ -1037,8 +1150,20 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
                         mainImage = placeholderImage;
                       }
                       
-                      const priceFormatted = product.price && product.price !== null && product.price !== undefined && product.price !== ''
-                        ? `${new Intl.NumberFormat('uz-UZ').format(Number(product.price))} so'm`
+                      const currentPrice = product.price && product.price !== null && product.price !== undefined && product.price !== ''
+                        ? Number(product.price)
+                        : null;
+                      const priceFormatted = currentPrice != null
+                        ? `${new Intl.NumberFormat('uz-UZ').format(currentPrice)} so'm`
+                        : null;
+                      const hasDiscount = (product.discountPercent ?? 0) > 0;
+                      const originalPriceValue = product.originalPrice != null && product.originalPrice !== ''
+                        ? Number(product.originalPrice)
+                        : hasDiscount && currentPrice != null
+                          ? Math.round(currentPrice / (1 - (product.discountPercent ?? 0) / 100))
+                          : null;
+                      const originalPriceFormatted = originalPriceValue != null
+                        ? `${new Intl.NumberFormat('uz-UZ').format(originalPriceValue)} so'm`
                         : null;
                       
                       const availability = product.availabilityStatus 
@@ -1082,8 +1207,11 @@ export default async function CatalogCategoryPage({ params, searchParams }: Cata
                               </p>
                             )}
                             {priceFormatted && (
-                              <span className="inline-flex items-center text-xs sm:text-sm font-medium text-brand-primary mt-auto" suppressHydrationWarning>
-                                <span className="font-bold">{locale === 'ru' ? 'Цена' : 'Narxi'}: </span>{priceFormatted}
+                              <span className="inline-flex flex-col gap-0.5 text-xs sm:text-sm font-medium text-brand-primary mt-auto" suppressHydrationWarning>
+                                {hasDiscount && originalPriceFormatted && (
+                                  <span className="text-muted-foreground line-through">{originalPriceFormatted}</span>
+                                )}
+                                <span><span className="font-bold">{locale === 'ru' ? 'Цена' : 'Narxi'}: </span>{priceFormatted}</span>
                               </span>
                             )}
                           </div>

@@ -2,7 +2,7 @@
 # Acoustic.uz Frontend Start Script
 # Bu script faqat port 3000'da ishga tushirish uchun
 
-cd /root/acoustic.uz/apps/frontend
+cd /var/www/acoustic.uz/apps/frontend
 
 export NODE_ENV=production
 export PORT=3000

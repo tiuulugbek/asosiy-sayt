@@ -1,12 +1,12 @@
 # Root dan Production Setup
 
-Bu qo'llanma backend va frontend ni `/root/acoustic.uz` dan productionda ishga tushirish uchun.
+Bu qo'llanma backend va frontend ni `/var/www/acoustic.uz` dan productionda ishga tushirish uchun.
 
 ## Tayanch konfiguratsiya
 
-PM2 konfiguratsiyasi `/root/acoustic.uz/deploy/ecosystem.config.js` da yangilandi:
-- Backend: `/root/acoustic.uz/apps/backend/dist/main.js`
-- Frontend: `/root/acoustic.uz/apps/frontend` (npm start)
+PM2 konfiguratsiyasi `/var/www/acoustic.uz/deploy/ecosystem.config.js` da yangilandi:
+- Backend: `/var/www/acoustic.uz/apps/backend/dist/main.js`
+- Frontend: `/var/www/acoustic.uz/apps/frontend` (npm start)
 
 ## PM2 Permission muammosini hal qilish
 
@@ -32,7 +32,7 @@ rm -rf /root/.pm2
 ### 3. PM2 ni qayta ishga tushirish
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 
 # Avval PM2 ni ishga tushirish (daemon yaratish uchun)
 pm2 list
@@ -47,14 +47,14 @@ pm2 save
 ### To'liq deployment
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 bash deploy/deploy-from-root.sh
 ```
 
 ### Faqat PM2 ni yangilash
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 bash deploy/update-pm2-to-root.sh
 ```
 
@@ -65,10 +65,10 @@ Agar skriptlar ishlamasa, quyidagi qadamlarni qo'lda bajaring:
 ### Backend
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pm2 start apps/backend/dist/main.js \
     --name acoustic-backend \
-    --cwd /root/acoustic.uz \
+    --cwd /var/www/acoustic.uz \
     --env NODE_ENV=production \
     --env PORT=3001 \
     --error /var/log/pm2/acoustic-backend-error.log \
@@ -83,11 +83,11 @@ pm2 start apps/backend/dist/main.js \
 ### Frontend
 
 ```bash
-cd /root/acoustic.uz/apps/frontend
+cd /var/www/acoustic.uz/apps/frontend
 pm2 start npm \
     --name acoustic-frontend \
     -- start \
-    --cwd /root/acoustic.uz/apps/frontend \
+    --cwd /var/www/acoustic.uz/apps/frontend \
     --interpreter none \
     --env NODE_ENV=production \
     --env PORT=3002 \

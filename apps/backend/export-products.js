@@ -82,7 +82,7 @@ async function exportProducts() {
     }));
 
     // JSON faylga yozish
-    const outputPath = '/root/acoustic.uz/scripts/products-export.json';
+    const outputPath = '/var/www/acoustic.uz/scripts/products-export.json';
     fs.writeFileSync(
       outputPath,
       JSON.stringify(productsJson, null, 2),

@@ -47,11 +47,7 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
   
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://acoustic.uz';
   const postUrl = `${baseUrl}/posts/${params.slug}`;
-  const imageUrl = post.cover?.url 
-    ? (post.cover.url.startsWith('http') 
-        ? post.cover.url 
-        : `${baseUrl}${post.cover.url}`)
-    : `${baseUrl}/logo.png`;
+  const imageUrl = post.cover?.url ? normalizeImageUrl(post.cover.url) : `${baseUrl}/logo.png`;
 
   return {
     title: optimizedTitle,
@@ -228,21 +224,6 @@ export default async function PostPage({ params }: PostPageProps) {
                 {locale === 'ru' ? 'Назад к статьям' : 'Maqolalarga qaytish'}
               </Link>
 
-              {/* Cover Image */}
-              {coverUrl && (
-                <div className="relative mb-8 aspect-video w-full overflow-hidden rounded-lg bg-muted">
-                  <Image
-                    src={coverUrl}
-                    alt={title}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 896px"
-                    priority
-                    unoptimized
-                  />
-                </div>
-              )}
-
               {/* Post Meta */}
               <div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -348,7 +329,7 @@ export default async function PostPage({ params }: PostPageProps) {
                 const relatedTitle = getBilingualText(relatedPost.title_uz, relatedPost.title_ru, locale);
                 const relatedExcerpt = getBilingualText(relatedPost.excerpt_uz, relatedPost.excerpt_ru, locale) || 
                                      getBilingualText(relatedPost.body_uz, relatedPost.body_ru, locale)?.replace(/<[^>]*>/g, '').substring(0, 100) + '...';
-                const relatedCoverUrl = relatedPost.cover?.url;
+                const relatedCoverUrl = relatedPost.cover?.url ? normalizeImageUrl(relatedPost.cover.url) : null;
 
                 return (
                   <Link
@@ -387,4 +368,3 @@ export default async function PostPage({ params }: PostPageProps) {
     </main>
   );
 }
-

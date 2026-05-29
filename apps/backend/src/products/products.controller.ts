@@ -28,7 +28,6 @@ export class ProductsController {
     filters: {
       status?: string;
       brandId?: string;
-      categoryId?: string;
       catalogId?: string;
       productType?: string;
       search?: string;
@@ -40,6 +39,7 @@ export class ProductsController {
       smartphoneCompatibility?: string;
       paymentOption?: string;
       availabilityStatus?: string;
+      discount?: string; // 'true' = faqat chegirmali
       limit?: string;
       offset?: string;
       sort?: 'newest' | 'price_asc' | 'price_desc';
@@ -50,6 +50,7 @@ export class ProductsController {
     return this.productsService.findAll({
       ...filters,
       status: 'published',
+      discount: filters.discount === 'true',
       limit,
       offset,
       sort: filters.sort,
@@ -72,7 +73,6 @@ export class ProductsController {
     filters: {
       status?: string;
       brandId?: string;
-      categoryId?: string;
       productType?: string;
       search?: string;
       audience?: string;

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   Button,
@@ -19,7 +20,14 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { TabsProps } from 'antd';
-import { UploadOutlined, FolderOutlined } from '@ant-design/icons';
+import { UploadOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
+import ListTable from '../components/common/ListTable';
+import { useTableLoading } from '../hooks/useTableLoading';
+import TableActions from '../components/common/TableActions';
+import StatusTag from '../components/common/StatusTag';
+import ModernTabs from '../components/common/ModernTabs';
 import dayjs from 'dayjs';
 import {
   useQuery,
@@ -71,8 +79,9 @@ function formatDate(date?: string) {
 
 // Posts Tab Component - Only shows news (postType='news')
 function PostsTab() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery<PostDto[], ApiError>({
+  const { data, isLoading, isFetching, isPending } = useQuery<PostDto[], ApiError>({
     queryKey: ['posts', 'news'],
     queryFn: async () => {
       const allPosts = await getPosts();
@@ -81,6 +90,7 @@ function PostsTab() {
     },
     retry: false,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
   const { data: mediaList } = useQuery<MediaDto[], ApiError>({
     queryKey: ['media'],
@@ -174,6 +184,9 @@ function PostsTab() {
     return options;
   }, [categories, categoriesError, isLoadingCategories]);
 
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<PostDto | null>(null);
   const [form] = Form.useForm();
@@ -368,11 +381,7 @@ function PostsTab() {
         title: 'Holati',
         dataIndex: 'status',
         key: 'status',
-        render: (value: PostDto['status']) => {
-          const color =
-            value === 'published' ? 'green' : value === 'draft' ? 'orange' : 'default';
-          return <Tag color={color}>{value}</Tag>;
-        },
+        render: (value: PostDto['status']) => <StatusTag status={value} />,
       },
       {
         title: 'Nashr sana',
@@ -383,44 +392,36 @@ function PostsTab() {
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right' as const,
         render: (_, record) => (
-          <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Maqolani o'chirish"
-              description="Haqiqatan ham o'chirilsinmi?"
-              onConfirm={() => handleDelete(record)}
-              okText="Ha"
-              cancelText="Yo'q"
-            >
-              <Button danger size="small" loading={isDeleting}>
-                O'chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions onEdit={() => navigate(`/posts/${record.id}/edit`)} onDelete={() => handleDelete(record)} loading={isDeleting} />
         ),
       },
     ],
-    [isDeleting, categories],
+    [isDeleting, categories, navigate],
   );
+
+  const filtered = useMemo(() => {
+    return (data ?? []).filter((p) => {
+      if (statusFilter && p.status !== statusFilter) return false;
+      if (categoryFilter && (p as PostDto & { categoryId?: string }).categoryId !== categoryFilter) return false;
+      if (!searchText.trim()) return true;
+      return p.title_uz.toLowerCase().includes(searchText.toLowerCase());
+    });
+  }, [data, searchText, statusFilter, categoryFilter]);
 
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={openCreateModal}>
-          Yangi maqola/yangilik
-        </Button>
-      </Space>
-
-      <Table
-        loading={isLoading}
-        dataSource={data ?? []}
-        columns={columns}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
-      />
+      <div className="mb-4 flex justify-end">
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/posts/new')}>Yangi yangilik</Button>
+      </div>
+      <FilterPanel onClear={() => { setSearchText(''); setStatusFilter(undefined); setCategoryFilter(undefined); }}>
+        <Input placeholder="Sarlavha..." value={searchText} onChange={(e) => setSearchText(e.target.value)} allowClear size="large" className="min-w-[200px] flex-1" />
+        <Select placeholder="Kategoriya" allowClear value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} className="min-w-[160px]" />
+        <Select placeholder="Holat" allowClear value={statusFilter} onChange={setStatusFilter} options={statusOptions} className="min-w-[140px]" />
+      </FilterPanel>
+      <ListTable loading={tableLoading} dataSource={filtered} columns={columns} />
 
       <Modal
         title={editingPost ? 'Maqolani tahrirlash' : 'Yangi maqola/yangilik'}
@@ -635,11 +636,12 @@ function PostsTab() {
 // Categories Tab Component
 function CategoriesTab() {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery<PostCategoryDto[], ApiError>({
+  const { data, isLoading, isFetching, isPending } = useQuery<PostCategoryDto[], ApiError>({
     queryKey: ['post-categories'],
     queryFn: () => getPostCategories(),
     retry: false,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
   const { data: mediaList } = useQuery({
     queryKey: ['media'],
@@ -805,50 +807,25 @@ function CategoriesTab() {
       title: 'Holati',
       dataIndex: 'status',
       key: 'status',
-      render: (value: string) => {
-        const color = value === 'published' ? 'green' : 'orange';
-        return <Tag color={color}>{value}</Tag>;
-      },
+      render: (value: string) => <StatusTag status={value} />,
     },
     {
       title: 'Amallar',
       key: 'actions',
+      width: 100,
+      fixed: 'right' as const,
       render: (_, record) => (
-        <Space>
-          <Button size="small" onClick={() => openEditModal(record)}>
-            Tahrirlash
-          </Button>
-          <Popconfirm
-            title="Kategoriyani o'chirish"
-            description="Haqiqatan ham o'chirilsinmi?"
-            onConfirm={() => handleDelete(record)}
-            okText="Ha"
-            cancelText="Yo'q"
-          >
-            <Button danger size="small" loading={isDeleting}>
-              O'chirish
-            </Button>
-          </Popconfirm>
-        </Space>
+        <TableActions onEdit={() => openEditModal(record)} onDelete={() => handleDelete(record)} loading={isDeleting} />
       ),
     },
   ];
 
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={openCreateModal}>
-          Yangi kategoriya
-        </Button>
-      </Space>
-
-      <Table
-        loading={isLoading}
-        dataSource={data ?? []}
-        columns={columns}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
-      />
+      <div className="mb-4 flex justify-end">
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>Yangi kategoriya</Button>
+      </div>
+      <ListTable loading={tableLoading} dataSource={data ?? []} columns={columns} />
 
       <Modal
         title={editingCategory ? 'Kategoriyani tahrirlash' : 'Yangi kategoriya'}
@@ -978,5 +955,10 @@ export default function PostsPage() {
     },
   ];
 
-  return <Tabs items={tabItems} />;
+  return (
+    <div>
+      <PageHeader title="Yangiliklar" description="Sayt yangiliklari va kategoriyalari" />
+      <ModernTabs items={tabItems} />
+    </div>
+  );
 }

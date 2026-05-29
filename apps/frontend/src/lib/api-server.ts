@@ -53,6 +53,8 @@ import {
   type PageResponse,
   getSettings as getSettingsApi,
   type SettingsResponse,
+  getPublishedReviews as getPublishedReviewsApi,
+  type PublishedReviewItem,
 } from './api';
 
 // Re-export types for use in pages
@@ -74,7 +76,19 @@ export type {
   BrandResponse,
   PageResponse,
   SettingsResponse,
+  PublishedReviewItem,
 } from './api';
+
+export async function getCategoryBySlug(
+  slug: string,
+  locale?: string,
+): Promise<ProductCategoryResponse | null> {
+  return safeApiCall(
+    () => getCategoryBySlugApi(slug, locale),
+    null,
+    `Failed to fetch category: ${slug}`,
+  );
+}
 
 /**
  * Safely fetch data from API, returning fallback on any error
@@ -105,21 +119,6 @@ async function safeApiCall<T>(
     }
     return fallback;
   }
-}
-
-/**
- * Get category by slug - returns null if not found or backend is down
- * This allows pages to distinguish between "not found" and "backend down"
- */
-export async function getCategoryBySlug(
-  slug: string,
-  locale?: string,
-): Promise<ProductCategoryResponse | null> {
-  return safeApiCall(
-    () => getCategoryBySlugApi(slug, locale),
-    null,
-    `Failed to fetch category: ${slug}`,
-  );
 }
 
 /**
@@ -190,9 +189,6 @@ export async function getProducts(
   );
 }
 
-/**
- * Get product categories - returns empty array if backend is down
- */
 export async function getProductCategories(
   locale?: string,
 ): Promise<ProductCategoryResponse[]> {
@@ -509,6 +505,20 @@ export async function getSettings(
       updatedAt: new Date().toISOString(),
     },
     'Failed to fetch settings',
+  );
+}
+
+/**
+ * Chop etilgan mijoz sharhlari (sayt uchun). Backend ishlamasa [].
+ */
+export async function getPublishedReviews(
+  locale?: string,
+  limit = 50,
+): Promise<PublishedReviewItem[]> {
+  return safeApiCall(
+    () => getPublishedReviewsApi(locale, limit),
+    [],
+    'Failed to fetch published reviews',
   );
 }
 

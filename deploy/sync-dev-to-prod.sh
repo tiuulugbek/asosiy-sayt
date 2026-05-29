@@ -3,7 +3,7 @@
 
 set -e
 
-DEV_DIR="/root/acoustic.uz"
+DEV_DIR="/var/www/acoustic.uz"
 PROD_DIR="/var/www/acoustic.uz"
 BACKUP_DIR="/var/www/acoustic.uz.backup.$(date +%Y%m%d_%H%M%S)"
 

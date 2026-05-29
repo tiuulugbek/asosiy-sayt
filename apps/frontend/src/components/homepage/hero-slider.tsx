@@ -82,8 +82,12 @@ export default function HeroSlider({ banners, locale, apiBaseUrl, phoneNumber = 
     return null;
   }
 
+  const staticH1 =
+    locale === 'ru' ? 'Acoustic — Центр слуха' : 'Acoustic — Eshitish markazi';
+
   return (
     <section className="bg-white py-8">
+      <h1 className="sr-only" suppressHydrationWarning>{staticH1}</h1>
       <div className="mx-auto max-w-6xl px-4 md:px-6">
         <div className="relative overflow-hidden rounded-lg bg-white shadow-sm">
           <div className="flex flex-col-reverse md:flex-row md:items-stretch">
@@ -103,9 +107,9 @@ export default function HeroSlider({ banners, locale, apiBaseUrl, phoneNumber = 
                   }}
                 >
                   <div className="space-y-3 md:space-y-4">
-                    <h1 className="text-xl font-bold leading-tight text-[#1e3a8a] md:text-2xl lg:text-3xl" suppressHydrationWarning>
+                    <h2 className="text-xl font-bold leading-tight text-[#1e3a8a] md:text-2xl lg:text-3xl" suppressHydrationWarning>
                       {slide.title}
-                    </h1>
+                    </h2>
                     {slide.subtitle && (
                       <p className="text-sm leading-relaxed text-muted-foreground md:text-base" suppressHydrationWarning>
                         {slide.subtitle}
@@ -130,6 +134,15 @@ export default function HeroSlider({ banners, locale, apiBaseUrl, phoneNumber = 
                         <Phone size={14} className="md:w-4 md:h-4" />
                         <span>{phoneNumber}</span>
                       </Link>
+                      <a
+                        href="https://t.me/acousticuz_bot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hidden md:inline-flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-3 text-sm font-medium text-white hover:opacity-90 transition"
+                        suppressHydrationWarning
+                      >
+                        {locale === 'ru' ? 'Онлайн-запись' : 'Qabulga yozilish'}
+                      </a>
                     </div>
                   </div>
                 </div>
@@ -155,7 +168,7 @@ export default function HeroSlider({ banners, locale, apiBaseUrl, phoneNumber = 
             </div>
 
             {/* Right Panel - Image */}
-            <div className="relative w-full md:w-1/2 bg-brand-primary md:min-h-[320px] rounded-t-lg md:rounded-t-none md:rounded-r-lg overflow-hidden">
+            <div className="relative w-full md:w-1/2 bg-brand-primary min-h-[200px] md:min-h-[320px] rounded-t-lg md:rounded-t-none md:rounded-r-lg overflow-hidden">
               {slides.map((slide, index) => {
                 const imageUrl = slide.image;
                 const isActive = index === activeSlide;
@@ -188,6 +201,8 @@ export default function HeroSlider({ banners, locale, apiBaseUrl, phoneNumber = 
                         <img
                           src={imageUrl}
                           alt={slide.title}
+                          fetchPriority={index === 0 ? 'high' : 'auto'}
+                          loading={index === 0 ? 'eager' : 'lazy'}
                           className="w-full h-full object-cover object-center"
                           style={{ 
                             minWidth: '100%',

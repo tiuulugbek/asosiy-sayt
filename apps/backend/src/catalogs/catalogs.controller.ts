@@ -87,3 +87,23 @@ export class CatalogLegacyController {
   }
 }
 
+// Backward-compatible public route used by the frontend for catalog-like product categories.
+@ApiTags('public')
+@Controller('product-categories')
+export class ProductCategoriesAliasController {
+  constructor(private readonly service: CatalogsService) {}
+
+  @Public()
+  @Get()
+  @ApiOperation({ summary: 'Get all product categories (catalog alias)' })
+  findAll(@Query('public') publicOnly?: string) {
+    return this.service.findAll(publicOnly !== 'false');
+  }
+
+  @Public()
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get product category by slug (catalog alias)' })
+  findBySlug(@Param('slug') slug: string, @Query('public') publicOnly?: string) {
+    return this.service.findBySlug(slug, publicOnly !== 'false');
+  }
+}

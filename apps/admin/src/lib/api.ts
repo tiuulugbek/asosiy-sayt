@@ -1,155 +1,37 @@
-// Use production API URL as default (fallback to localhost only in development)
-// Check if we're in production mode
-let API_BASE = 'https://a.acoustic.uz/api'; // Default to production (a.acoustic.uz is the backend domain)
+import api, { getApiBase } from './axios';
+import { ApiError } from './api-error';
 
-// Try to get from window object first (injected by plugin)
-if (typeof window !== 'undefined' && (window as any).__VITE_API_URL__) {
-  API_BASE = (window as any).__VITE_API_URL__;
-} else if (import.meta.env.VITE_API_URL) {
-  // Try to get from Vite env
-  API_BASE = import.meta.env.VITE_API_URL;
-} else {
-  // Fallback: check if we're in development
-  const isProduction = import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && !window.location.hostname.includes('localhost'));
-  
-  // If served from admin.acoustic.uz, use relative path (nginx will proxy to backend)
-  if (typeof window !== 'undefined' && window.location.hostname === 'admin.acoustic.uz') {
-    API_BASE = '/api';
-  } else {
-    API_BASE = isProduction ? 'https://a.acoustic.uz/api' : 'http://localhost:3001/api';
-  }
-}
+export { ApiError };
+export const API_BASE = getApiBase();
 
 interface RequestOptions extends RequestInit {
   auth?: boolean;
 }
 
-export class ApiError extends Error {
-  status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.status = status;
-  }
-}
-
-// Track if refresh is in progress to avoid multiple simultaneous refresh attempts
-let refreshPromise: Promise<boolean> | null = null;
-
-async function request<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
-    credentials: 'include',
-    ...options,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    let message = text || response.statusText;
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const method = (options.method ?? 'GET').toUpperCase();
+  let data: unknown;
+  if (options.body) {
     try {
-      const parsed = text ? JSON.parse(text) : null;
-      if (parsed?.message) {
-        message = Array.isArray(parsed.message) ? parsed.message.join(', ') : parsed.message;
-      }
-    } catch (error) {
-      // ignore JSON parse errors
+      data = JSON.parse(options.body as string);
+    } catch {
+      data = options.body;
     }
-    
-    // Handle 401 Unauthorized - try to refresh token first
-    if (response.status === 401 && !isRetry) {
-      // Don't try to refresh on login or refresh endpoints
-      if (path !== '/auth/login' && path !== '/auth/refresh') {
-        // Try to refresh token if not already refreshing
-        if (!refreshPromise) {
-          refreshPromise = (async () => {
-            try {
-              const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
-                method: 'PATCH',
-                credentials: 'include',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              });
-
-              return refreshResponse.ok;
-            } catch (error) {
-              return false;
-            } finally {
-              // Clear refresh promise after a short delay
-              setTimeout(() => {
-                refreshPromise = null;
-              }, 1000);
-            }
-          })();
-        }
-
-        try {
-          // Wait for refresh to complete
-          const refreshSuccess = await refreshPromise;
-          if (refreshSuccess) {
-            // Token refreshed successfully, retry original request
-            return request<T>(path, options, true);
-          }
-        } catch (error) {
-          // Refresh failed, continue to redirect
-        }
-      }
-
-      // Refresh failed or not applicable - redirect to login
-      // Clear user data from localStorage
-      try {
-        localStorage.removeItem('admin_user');
-      } catch (err) {
-        // ignore
-      }
-      
-      // Only redirect if not already on login page
-      if (window.location.pathname !== '/login') {
-        // Clear query cache
-        const queryClient = (window as any).__queryClient;
-        if (queryClient) {
-          queryClient.clear();
-        }
-        
-        // Show warning message
-        if (typeof window !== 'undefined' && (window as any).antd) {
-          (window as any).antd.message?.warning('Sessiya tugadi. Iltimos, qayta kiring.');
-        }
-        
-        // Redirect to login page
-        window.location.href = '/login';
-      }
-    }
-    
-    throw new ApiError(message || `Request failed with status ${response.status}`, response.status);
   }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  // Check if response has content before parsing JSON
-  const contentType = response.headers.get('content-type');
-  const text = await response.text();
-  
-  // If response is empty, return null for nullable types
-  if (!text || text.trim() === '') {
-    // For 404 errors, return null instead of throwing
-    if (response.status === 404) {
+  try {
+    const response = await api.request<T>({
+      url: path,
+      method: method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+      data,
+      headers: options.headers as Record<string, string>,
+    });
+    return response.data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
       return null as T;
     }
-    return undefined as T;
-  }
-
-  // Try to parse JSON
-  try {
-    return JSON.parse(text) as T;
-  } catch (error) {
-    // If JSON parsing fails, throw error
-    throw new ApiError(`Invalid JSON response: ${text.substring(0, 100)}`, response.status);
+    throw error;
   }
 }
 
@@ -193,17 +75,14 @@ export type CreatePostPayload = Omit<PostDto, 'id' | 'createdAt' | 'updatedAt'>;
 export type UpdatePostPayload = Partial<CreatePostPayload>;
 
 export const login = (payload: { email: string; password: string }) =>
-  request<{ user: UserDto }>(
-    '/auth/login',
-    {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    }
-  );
+  request<{ user: UserDto; access_token: string }>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 
 export const logout = () =>
   request<void>('/auth/logout', {
-    method: 'PATCH',
+    method: 'POST',
   });
 
 export const getCurrentUser = () => request<UserDto>('/auth/me');
@@ -211,7 +90,7 @@ export const getCurrentUser = () => request<UserDto>('/auth/me');
 export const getPosts = () => request<PostDto[]>('/posts');
 export const createPost = (payload: CreatePostPayload) =>
   request<PostDto>('/posts', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updatePost = (id: string, payload: UpdatePostPayload) =>
@@ -250,7 +129,7 @@ export const getPostCategories = (section?: string) => {
 };
 export const createPostCategory = (payload: CreatePostCategoryPayload) =>
   request<PostCategoryDto>('/post-categories', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updatePostCategory = (id: string, payload: UpdatePostCategoryPayload) =>
@@ -308,7 +187,7 @@ export type UpdateServicePayload = Partial<CreateServicePayload>;
 export const getServices = () => request<ServiceDto[]>('/services/admin');
 export const createService = (payload: CreateServicePayload) =>
   request<ServiceDto>('/services', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateService = (id: string, payload: UpdateServicePayload) =>
@@ -359,6 +238,8 @@ export type CreateDoctorPayload = {
   description_ru?: string | null;
   slug: string;
   imageId?: string | null;
+  branchIds?: string[];
+  patientTypes?: string[];
   order?: number;
   status?: DoctorDto['status'];
 };
@@ -368,7 +249,7 @@ export type UpdateDoctorPayload = Partial<CreateDoctorPayload>;
 export const getDoctors = () => request<DoctorDto[]>('/doctors/admin');
 export const createDoctor = (payload: CreateDoctorPayload) =>
   request<DoctorDto>('/doctors', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateDoctor = (id: string, payload: UpdateDoctorPayload) =>
@@ -423,7 +304,7 @@ export type UpdateServiceCategoryPayload = Partial<CreateServiceCategoryPayload>
 export const getServiceCategoriesAdmin = () => request<ServiceCategoryDto[]>('/service-categories/admin');
 export const createServiceCategory = (payload: CreateServiceCategoryPayload) =>
   request<ServiceCategoryDto>('/service-categories', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateServiceCategory = (id: string, payload: UpdateServiceCategoryPayload) =>
@@ -469,7 +350,7 @@ export type UpdateHomepageHearingAidPayload = Partial<CreateHomepageHearingAidPa
 export const getHomepageHearingAids = () => request<HomepageHearingAidDto[]>('/homepage/hearing-aids/admin');
 export const createHomepageHearingAid = (payload: CreateHomepageHearingAidPayload) =>
   request<HomepageHearingAidDto>('/homepage/hearing-aids', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateHomepageHearingAid = (id: string, payload: UpdateHomepageHearingAidPayload) =>
@@ -508,7 +389,7 @@ export type UpdateHomepageJourneyPayload = Partial<CreateHomepageJourneyPayload>
 export const getHomepageJourneySteps = () => request<HomepageJourneyStepDto[]>('/homepage/journey/admin');
 export const createHomepageJourneyStep = (payload: CreateHomepageJourneyPayload) =>
   request<HomepageJourneyStepDto>('/homepage/journey', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateHomepageJourneyStep = (id: string, payload: UpdateHomepageJourneyPayload) =>
@@ -558,7 +439,7 @@ export type UpdateHomepageNewsPayload = Partial<CreateHomepageNewsPayload>;
 export const getHomepageNewsItems = () => request<HomepageNewsItemDto[]>('/homepage/news/admin');
 export const createHomepageNewsItem = (payload: CreateHomepageNewsPayload) =>
   request<HomepageNewsItemDto>('/homepage/news', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateHomepageNewsItem = (id: string, payload: UpdateHomepageNewsPayload) =>
@@ -604,7 +485,7 @@ export type UpdateHomepageServicePayload = Partial<CreateHomepageServicePayload>
 export const getHomepageServices = () => request<HomepageServiceDto[]>('/homepage/services/admin');
 export const createHomepageService = (payload: CreateHomepageServicePayload) =>
   request<HomepageServiceDto>('/homepage/services', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateHomepageService = (id: string, payload: UpdateHomepageServicePayload) =>
@@ -656,7 +537,7 @@ export type UpdateHomepageSectionPayload = Partial<CreateHomepageSectionPayload>
 export const getHomepageSections = () => request<HomepageSectionDto[]>('/homepage/sections');
 export const createHomepageSection = (payload: CreateHomepageSectionPayload) =>
   request<HomepageSectionDto>('/homepage/sections', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateHomepageSection = (key: string, payload: UpdateHomepageSectionPayload) =>
@@ -700,7 +581,7 @@ export type UpdateHomepageLinkPayload = Partial<CreateHomepageLinkPayload>;
 export const getHomepageLinks = () => request<HomepageLinkDto[]>('/homepage/links');
 export const createHomepageLink = (payload: CreateHomepageLinkPayload) =>
   request<HomepageLinkDto>('/homepage/links', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateHomepageLink = (id: string, payload: UpdateHomepageLinkPayload) =>
@@ -748,7 +629,7 @@ export type UpdateHomepagePlaceholderPayload = Partial<CreateHomepagePlaceholder
 export const getHomepagePlaceholders = () => request<HomepagePlaceholderDto[]>('/homepage/placeholders');
 export const createHomepagePlaceholder = (payload: CreateHomepagePlaceholderPayload) =>
   request<HomepagePlaceholderDto>('/homepage/placeholders', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateHomepagePlaceholder = (sectionKey: string, payload: UpdateHomepagePlaceholderPayload) =>
@@ -784,7 +665,7 @@ export type UpdateHomepageEmptyStatePayload = Partial<CreateHomepageEmptyStatePa
 export const getHomepageEmptyStates = () => request<HomepageEmptyStateDto[]>('/homepage/empty-states');
 export const createHomepageEmptyState = (payload: CreateHomepageEmptyStatePayload) =>
   request<HomepageEmptyStateDto>('/homepage/empty-states', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateHomepageEmptyState = (sectionKey: string, payload: UpdateHomepageEmptyStatePayload) =>
@@ -848,7 +729,7 @@ export type UpdateCommonTextPayload = Partial<CreateCommonTextPayload>;
 export const getCommonTexts = () => request<CommonTextDto[]>('/common-texts');
 export const createCommonText = (payload: CreateCommonTextPayload) =>
   request<CommonTextDto>('/common-texts', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateCommonText = (key: string, payload: UpdateCommonTextPayload) =>
@@ -888,7 +769,7 @@ export type UpdateAvailabilityStatusPayload = Partial<CreateAvailabilityStatusPa
 export const getAvailabilityStatuses = () => request<AvailabilityStatusDto[]>('/availability-statuses');
 export const createAvailabilityStatus = (payload: CreateAvailabilityStatusPayload) =>
   request<AvailabilityStatusDto>('/availability-statuses', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateAvailabilityStatus = (key: string, payload: UpdateAvailabilityStatusPayload) =>
@@ -939,7 +820,7 @@ export type UpdateBannerPayload = Partial<CreateBannerPayload>;
 export const getBannersAdmin = () => request<BannerDto[]>('/banners/admin');
 export const createBanner = (payload: CreateBannerPayload) =>
   request<BannerDto>('/banners', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateBanner = (id: string, payload: UpdateBannerPayload) =>
@@ -982,7 +863,7 @@ export const uploadMedia = async (file: File, alt_uz?: string, alt_ru?: string, 
 
   try {
     const response = await fetch(`${API_BASE}/media`, {
-      method: 'PATCH',
+      method: 'POST',
       credentials: 'include',
       body: formData,
     });
@@ -1064,52 +945,6 @@ export const updateMenu = (name: string, items: MenuItemDto[]) =>
     body: JSON.stringify({ items }),
   });
 
-export interface ProductCategoryDto {
-  id: string;
-  name_uz: string;
-  name_ru: string;
-  slug: string;
-  description_uz?: string | null;
-  description_ru?: string | null;
-  icon?: string | null;
-  image?: {
-    id: string;
-    url: string;
-  } | null;
-  parentId?: string | null;
-  order: number;
-}
-
-export type CreateProductCategoryPayload = {
-  name_uz: string;
-  name_ru: string;
-  slug: string;
-  description_uz?: string | null;
-  description_ru?: string | null;
-  icon?: string | null;
-  imageId?: string | null;
-  parentId?: string | null;
-  order?: number;
-};
-
-export type UpdateProductCategoryPayload = Partial<CreateProductCategoryPayload>;
-
-export const getProductCategoriesAdmin = () => request<ProductCategoryDto[]>('/product-categories');
-export const createProductCategory = (payload: CreateProductCategoryPayload) =>
-  request<ProductCategoryDto>('/product-categories', {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  });
-export const updateProductCategory = (id: string, payload: UpdateProductCategoryPayload) =>
-  request<ProductCategoryDto>(`/product-categories/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  });
-export const deleteProductCategory = (id: string) =>
-  request<void>(`/product-categories/${id}`, {
-    method: 'DELETE',
-  });
-
 // Catalog API
 export interface CatalogDto {
   id: string;
@@ -1149,7 +984,7 @@ export const getCatalogsAdmin = () => request<CatalogDto[]>('/catalogs/admin');
 export const getCatalogs = () => request<CatalogDto[]>('/catalogs?public=true');
 export const createCatalog = (payload: CreateCatalogPayload) =>
   request<CatalogDto>('/catalogs', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateCatalog = (id: string, payload: UpdateCatalogPayload) =>
@@ -1187,7 +1022,7 @@ export type UpdateBrandPayload = Partial<CreateBrandPayload>;
 
 export const createBrand = (payload: CreateBrandPayload) =>
   request<BrandDto>('/brands', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 
@@ -1213,13 +1048,11 @@ export interface ProductDto {
   price?: string | null;
   stock?: number | null;
   brandId?: string | null;
-  categoryId?: string | null;
   status: 'published' | 'draft' | 'archived';
   specsText?: string | null;
   galleryIds: string[];
   galleryUrls: string[];
   brand?: BrandDto | null;
-  category?: ProductCategoryDto | null;
   catalogs?: CatalogDto[];
   createdAt: string;
   updatedAt: string;
@@ -1246,6 +1079,8 @@ export interface ProductDto {
   regulatoryNote_ru?: string | null;
   relatedProductIds: string[];
   usefulArticleSlugs: string[];
+  discountPercent?: number | null;
+  originalPrice?: string | null;
 }
 
 export type CreateProductPayload = {
@@ -1258,7 +1093,6 @@ export type CreateProductPayload = {
   price?: number | null;
   stock?: number | null;
   brandId?: string | null;
-  categoryId?: string | null;
   catalogIds?: string[];
   status?: ProductDto['status'];
   specsText?: string | null;
@@ -1287,6 +1121,8 @@ export type CreateProductPayload = {
   regulatoryNote_ru?: string | null;
   relatedProductIds?: string[];
   usefulArticleSlugs?: string[];
+  discountPercent?: number | null;
+  originalPrice?: number | null;
 };
 
 export type UpdateProductPayload = Partial<CreateProductPayload>;
@@ -1302,7 +1138,7 @@ export const getProductsAdmin = (filters?: { limit?: number; offset?: number; st
 };
 export const createProduct = (payload: CreateProductPayload) =>
   request<ProductDto>('/products', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateProduct = (id: string, payload: UpdateProductPayload) =>
@@ -1326,7 +1162,7 @@ export const importProductsFromExcel = async (file: File): Promise<ImportExcelRe
   formData.append('file', file);
 
   const response = await fetch(`${API_BASE}/products/import/excel`, {
-    method: 'PATCH',
+    method: 'POST',
     credentials: 'include',
     body: formData,
   });
@@ -1398,7 +1234,7 @@ export type UpdateFaqPayload = Partial<CreateFaqPayload>;
 export const getFaqsAdmin = () => request<FaqDto[]>('/faq');
 export const createFaq = (payload: CreateFaqPayload) =>
   request<FaqDto>('/faq', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateFaq = (id: string, payload: UpdateFaqPayload) =>
@@ -1463,7 +1299,7 @@ export const getPageBySlug = async (slug: string, includeDraft = true): Promise<
 };
 export const createPage = (payload: CreatePagePayload) =>
   request<PageDto>('/pages', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updatePage = (id: string, payload: UpdatePagePayload) =>
@@ -1531,7 +1367,7 @@ export type UpdateBranchPayload = Partial<CreateBranchPayload>;
 export const getBranches = () => request<BranchDto[]>('/branches');
 export const createBranch = (payload: CreateBranchPayload) =>
   request<BranchDto>('/branches', {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 export const updateBranch = (id: string, payload: UpdateBranchPayload) =>
@@ -1578,7 +1414,7 @@ export const getShowcase = (type: 'interacoustics' | 'cochlear') =>
   request<ShowcaseDto>(`/showcases/${type}`);
 export const updateShowcase = (type: 'interacoustics' | 'cochlear', payload: UpdateShowcasePayload) =>
   request<ShowcaseDto>(`/showcases/${type}`, {
-    method: 'PATCH',
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 
@@ -1688,6 +1524,7 @@ export interface LeadDto {
   source?: string | null;
   message?: string | null;
   productId?: string | null;
+  utmParams?: Record<string, string> | null;
   status?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -1720,5 +1557,83 @@ export interface TelegramButtonStats {
 
 export const getTelegramButtonStats = () =>
   request<TelegramButtonStats>('/leads/stats/telegram-button', { auth: true });
+
+export interface TrafficListItem {
+  name: string;
+  count: number;
+}
+
+export interface TrafficDailyStats {
+  date: string;
+  pageviews: number;
+  visits: number;
+  uniqueIps: number;
+  botRequests: number;
+  rawRequests: number;
+}
+
+export interface TrafficMonthlyStats {
+  month: string;
+  pageviews: number;
+  visits: number;
+  uniqueIps: number;
+  rawRequests: number;
+  botRequests: number;
+}
+
+export interface TrafficReportDto {
+  range: {
+    from: string;
+    to: string;
+    generatedAt: string;
+  };
+  summary: {
+    pageviews: number;
+    visits: number;
+    uniqueIps: number;
+    botRequests: number;
+    rawRequests: number;
+    ok200: number;
+    notFound404: number;
+    serverErrors5xx: number;
+  };
+  daily: TrafficDailyStats[];
+  monthly: TrafficMonthlyStats[];
+  topPages: TrafficListItem[];
+  topReferrers: TrafficListItem[];
+  note: string;
+}
+
+export const getTrafficReport = (days = 15) =>
+  request<TrafficReportDto>(`/traffic/report?days=${days}`, { auth: true });
+
+// Reviews (mijoz sharhlari — Lead dan alohida)
+export interface ReviewDto {
+  id: string;
+  name: string;
+  rating: number;
+  body: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type UpdateReviewPayload = {
+  status?: 'pending' | 'published' | 'rejected';
+  name?: string;
+  rating?: number;
+  body?: string;
+};
+
+export const getReviewsAdmin = () => request<ReviewDto[]>('/reviews/admin');
+
+export const updateReviewStatus = (id: string, payload: UpdateReviewPayload) =>
+  request<ReviewDto>(`/reviews/admin/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+
+export const deleteReviewAdmin = (id: string) =>
+  request<void>(`/reviews/admin/${id}`, { method: 'DELETE' });
 
 // AmoCRM API - REMOVED (no longer used)

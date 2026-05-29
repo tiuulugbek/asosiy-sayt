@@ -21,7 +21,7 @@ export class ShowcasesService {
         id: { in: showcase.productIds },
         status: 'published', // Only return published products
       },
-      include: { brand: true, category: true },
+      include: { brand: true },
     });
 
     return { ...showcase, products };

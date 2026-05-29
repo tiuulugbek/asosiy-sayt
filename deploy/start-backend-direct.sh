@@ -4,7 +4,7 @@
 
 set -e
 
-PROJECT_ROOT="/root/acoustic.uz"
+PROJECT_ROOT="/var/www/acoustic.uz"
 BACKEND_DIR="$PROJECT_ROOT/apps/backend"
 
 echo "🚀 Backend ni to'g'ridan-to'g'ri ishga tushirish..."

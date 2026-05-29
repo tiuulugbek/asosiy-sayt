@@ -9,12 +9,15 @@ import {
   UseGuards,
   Get,
   Req,
+  UseFilters,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { ApiKeyOrJwtAuthGuard } from '../common/guards/api-key-or-jwt.guard';
+import { IntegrationExceptionFilter } from '../common/filters/integration-exception.filter';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { LoginDto, ChangePasswordDto } from './dto';
 
@@ -113,6 +116,19 @@ export class AuthController {
   @ApiBearerAuth()
   async getMe(@CurrentUser() user: unknown) {
     return user;
+  }
+
+  @Get('whoami')
+  @UseGuards(ApiKeyOrJwtAuthGuard)
+  @UseFilters(IntegrationExceptionFilter)
+  @ApiOperation({ summary: 'Token validatsiya (JWT yoki API key)' })
+  @ApiBearerAuth()
+  async whoami(@CurrentUser() user: { id: string; fullName?: string; email: string; role: { name: string } }) {
+    return {
+      id: user.id,
+      name: user.fullName || user.email,
+      role: user.role.name,
+    };
   }
 
   @UseGuards(JwtAuthGuard)

@@ -11,6 +11,16 @@ export class LeadsService {
     private telegramService: TelegramService
   ) {}
 
+  private normalizeUtmParams(value: Prisma.JsonValue | null): Record<string, string> | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return undefined;
+    }
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => typeof v === 'string')
+      .map(([k, v]) => [k, v as string]);
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+  }
+
   async findAll() {
     return this.prisma.lead.findMany({
       orderBy: { createdAt: 'desc' },
@@ -82,7 +92,15 @@ export class LeadsService {
     // Don't send telegram_button_click events to Telegram (they're just for tracking)
     if (lead.source !== 'telegram_button' && lead.source !== 'telegram_button_click') {
       try {
-        await this.telegramService.sendLead(lead);
+        await this.telegramService.sendLead({
+          name: lead.name,
+          phone: lead.phone,
+          email: lead.email ?? undefined,
+          source: lead.source ?? undefined,
+          message: lead.message ?? undefined,
+          productId: lead.productId ?? undefined,
+          utmParams: this.normalizeUtmParams(lead.utmParams),
+        });
       } catch (error) {
         console.error('Failed to send lead to Telegram:', error);
       }

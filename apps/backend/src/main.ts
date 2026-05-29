@@ -31,6 +31,7 @@ async function bootstrap() {
   const corsOriginsEnv = configService.get<string>('CORS_ORIGIN', '');
   const defaultOrigins = [
     'https://admin.acoustic.uz',
+    'https://qr.acoustic.uz',
     'https://acoustic.uz',
     'https://www.acoustic.uz',
     'http://localhost:3000',
@@ -98,7 +99,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
-      whitelist: false, // Disable whitelist to allow all fields from Prisma
+      whitelist: true,
       forbidNonWhitelisted: false,
       transformOptions: {
         enableImplicitConversion: true,
@@ -132,4 +133,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-

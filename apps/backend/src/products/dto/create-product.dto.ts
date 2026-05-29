@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, IsArray, IsBoolean, IsEnum, Min, IsPositive } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsBoolean, IsEnum, Min, Max, IsPositive } from 'class-validator';
 
 export class CreateProductDto {
   @ApiProperty({ description: 'Mahsulot nomi (o\'zbekcha)' })
@@ -35,6 +35,19 @@ export class CreateProductDto {
   @IsPositive()
   price?: number;
 
+  @ApiPropertyOptional({ description: 'Chegirma foizi (1-99), null = yo\'q' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(99)
+  discountPercent?: number | null;
+
+  @ApiPropertyOptional({ description: 'Chegirma oldingi narx (ixtiyoriy)' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  originalPrice?: number | null;
+
   @ApiPropertyOptional({ description: 'Ombor miqdori' })
   @IsOptional()
   @IsNumber()
@@ -45,11 +58,6 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   brandId?: string;
-
-  @ApiPropertyOptional({ description: 'Kategoriya ID' })
-  @IsOptional()
-  @IsString()
-  categoryId?: string;
 
   @ApiPropertyOptional({ description: 'Katalog ID lar', type: [String] })
   @IsOptional()

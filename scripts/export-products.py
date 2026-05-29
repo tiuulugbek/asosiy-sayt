@@ -186,7 +186,7 @@ def export_products():
         products.append(product)
     
     # JSON faylga yozish
-    output_path = '/root/acoustic.uz/scripts/products-export.json'
+    output_path = '/var/www/acoustic.uz/scripts/products-export.json'
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(products, f, ensure_ascii=False, indent=2)
     

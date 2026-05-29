@@ -13,6 +13,7 @@ const staticPages = [
   'patients',
   'children-hearing',
   'posts',
+  'ramazon-chegirmasi',
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

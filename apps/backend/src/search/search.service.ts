@@ -22,7 +22,7 @@ export class SearchService {
             { description_ru: { contains: query, mode: 'insensitive' } },
           ],
         },
-        include: { brand: true, category: true },
+        include: { brand: true },
         take: 10,
       }),
       this.prisma.service.findMany({

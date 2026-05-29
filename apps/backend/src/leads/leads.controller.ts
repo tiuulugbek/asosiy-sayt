@@ -42,7 +42,7 @@ export class LeadsController {
   @ApiOperation({ summary: 'Create lead (public)' })
   async create(@Body() createDto: unknown) {
     // Track Telegram button clicks
-    const data = createDto as { source?: string };
+    const data = createDto as { source?: string; utmParams?: Record<string, string> };
     if (data.source === 'telegram_button_click') {
       // Create a minimal lead entry for tracking
       return this.leadsService.create({
@@ -50,6 +50,7 @@ export class LeadsController {
         phone: 'N/A',
         source: 'telegram_button_click',
         message: 'User clicked Telegram button',
+        utmParams: data.utmParams ?? undefined,
       });
     }
     return this.leadsService.create(createDto);

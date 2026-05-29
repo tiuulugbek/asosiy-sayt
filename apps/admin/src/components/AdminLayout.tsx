@@ -1,234 +1,34 @@
-import { Layout, Menu, Spin, message } from 'antd';
-import {
-  DashboardOutlined,
-  AppstoreOutlined,
-  TeamOutlined,
-  SolutionOutlined,
-  BookOutlined,
-  FileTextOutlined,
-  LogoutOutlined,
-  CustomerServiceOutlined,
-  InfoCircleOutlined,
-  EnvironmentOutlined,
-  PictureOutlined,
-  OrderedListOutlined,
-  QuestionCircleOutlined,
-  MessageOutlined,
-} from '@ant-design/icons';
+import { Spin, Drawer, message } from 'antd';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
-import type { MenuProps } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCurrentUser, logout, ApiError, UserDto } from '../lib/api';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { getCurrentUser, logout, getLeads, getReviewsAdmin, ApiError, UserDto } from '../lib/api';
+import Sidebar from './layout/Sidebar';
+import Header from './layout/Header';
+import { useUiStore } from '../store/uiStore';
 
-const { Header, Sider, Content, Footer } = Layout;
-
-// Version state - will be loaded dynamically to avoid cache issues
 const getInitialVersion = (): { version: string; buildTime: string } => {
-  // Try to get from window object first (injected by plugin in HTML)
   if (typeof window !== 'undefined') {
-    const windowVersion = (window as any).__APP_VERSION__;
-    const windowBuildTime = (window as any).__BUILD_TIME__;
-    
-    // Also try to get from meta tag (fallback)
-    if (!windowVersion) {
-      const metaVersion = document.querySelector('meta[name="app-version"]')?.getAttribute('content');
-      const metaBuildTime = document.querySelector('meta[name="build-time"]')?.getAttribute('content');
-      
-      if (metaVersion && metaBuildTime) {
-        // Set window object for consistency
-        (window as any).__APP_VERSION__ = metaVersion;
-        (window as any).__BUILD_TIME__ = metaBuildTime;
-        return {
-          version: metaVersion,
-          buildTime: metaBuildTime,
-        };
-      }
-    }
-    
+    const windowVersion = (window as Window & { __APP_VERSION__?: string }).__APP_VERSION__;
+    const windowBuildTime = (window as Window & { __BUILD_TIME__?: string }).__BUILD_TIME__;
     if (windowVersion && windowBuildTime) {
-      return {
-        version: windowVersion,
-        buildTime: windowBuildTime,
-      };
+      return { version: windowVersion, buildTime: windowBuildTime };
+    }
+    const metaVersion = document.querySelector('meta[name="app-version"]')?.getAttribute('content');
+    const metaBuildTime = document.querySelector('meta[name="build-time"]')?.getAttribute('content');
+    if (metaVersion && metaBuildTime) {
+      return { version: metaVersion, buildTime: metaBuildTime };
     }
   }
-  // Fallback
-  return {
-    version: '1.0.0',
-    buildTime: new Date().toISOString(),
-  };
+  return { version: '1.0.0', buildTime: new Date().toISOString() };
 };
 
-const menuItems: MenuProps['items'] = [
-  {
-    key: '/',
-    icon: <DashboardOutlined />,
-    label: 'Bosh sahifa',
-  },
-  {
-    key: '/services',
-    icon: <CustomerServiceOutlined />,
-    label: 'Xizmatlar',
-  },
-  {
-    key: '/catalog',
-    icon: <AppstoreOutlined />,
-    label: 'Katalog',
-  },
-  {
-    key: '/brands',
-    icon: <AppstoreOutlined />,
-    label: 'Brendlar',
-  },
-  {
-    key: '/doctors',
-    icon: <TeamOutlined />,
-    label: 'Mutaxassislar',
-  },
-  {
-    key: '/patients',
-    icon: <SolutionOutlined />,
-    label: 'Bemorlar',
-  },
-  {
-    key: '/children-hearing',
-    icon: <BookOutlined />,
-    label: 'Bolalar',
-  },
-  {
-    key: '/about',
-    icon: <InfoCircleOutlined />,
-    label: 'Biz haqimizda',
-  },
-  {
-    key: '/branches',
-    icon: <EnvironmentOutlined />,
-    label: 'Filiallar',
-  },
-  {
-    type: 'divider',
-    key: 'divider-1',
-  },
-  {
-    key: '/posts',
-    icon: <FileTextOutlined />,
-    label: 'Yangiliklar',
-  },
-  {
-    key: '/banners',
-    icon: <PictureOutlined />,
-    label: 'Slaydlar',
-  },
-  {
-    key: '/menus',
-    icon: <OrderedListOutlined />,
-    label: 'Menyu',
-  },
-  {
-    key: '/faq',
-    icon: <QuestionCircleOutlined />,
-    label: 'Savol-Javob',
-  },
-  {
-    key: '/leads',
-    icon: <MessageOutlined />,
-    label: 'So\'rovlar',
-  },
-  {
-    type: 'divider',
-    key: 'divider-2',
-  },
-  {
-    key: '/media',
-    icon: <PictureOutlined />,
-    label: 'Media kutubxonasi',
-  },
-  {
-    type: 'divider',
-    key: 'divider-3',
-  },
-  {
-    key: '/settings',
-    icon: <InfoCircleOutlined />,
-    label: 'Sozlamalar',
-  },
-];
-
 export default function AdminLayout() {
-  const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [versionInfo, setVersionInfo] = useState<{ version: string; buildTime: string }>(getInitialVersion);
+  const { sidebarCollapsed, mobileDrawerOpen, setMobileDrawerOpen, darkMode } = useUiStore();
+  const [versionInfo] = useState(getInitialVersion);
 
-  const selectedKey = menuItems?.find((item) => item?.key === location.pathname)
-    ? [location.pathname]
-    : ['/'];
-
-  // Load version on mount - prioritize window.__APP_VERSION__ (injected in HTML)
-  useEffect(() => {
-    // Log initial version
-    const windowVersion = (window as any).__APP_VERSION__;
-    const windowBuildTime = (window as any).__BUILD_TIME__;
-    
-    console.log('[AdminLayout] Initial window.__APP_VERSION__:', windowVersion);
-    console.log('[AdminLayout] Initial window.__BUILD_TIME__:', windowBuildTime);
-    console.log('[AdminLayout] Initial versionInfo state:', versionInfo);
-    
-    // Update version from window object (injected in HTML during build)
-    if (windowVersion && windowBuildTime) {
-      const newVersionInfo = {
-        version: windowVersion,
-        buildTime: windowBuildTime,
-      };
-      setVersionInfo(newVersionInfo);
-      console.log('[AdminLayout] ✅ Version updated from window:', windowVersion);
-    }
-    
-    // Also try to fetch version.json as fallback (with cache busting)
-    const fetchVersion = async () => {
-      try {
-        const response = await fetch(`/version.json?t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-          },
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch version.json: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        console.log('[AdminLayout] Fetched version.json:', data);
-        
-        // Only update if version.json has newer version or window version is missing
-        if (data.version && data.buildTime) {
-          if (!windowVersion || data.version !== windowVersion) {
-            const newVersionInfo = {
-              version: data.version,
-              buildTime: data.buildTime,
-            };
-            setVersionInfo(newVersionInfo);
-            (window as any).__APP_VERSION__ = data.version;
-            (window as any).__BUILD_TIME__ = data.buildTime;
-            console.log('[AdminLayout] ✅ Version updated from version.json:', data.version);
-          }
-        }
-      } catch (error) {
-        console.log('[AdminLayout] ⚠️ version.json not available (using window version):', error);
-        // Keep version from window object
-      }
-    };
-    
-    // Only fetch version.json if window version is missing
-    if (!windowVersion) {
-      fetchVersion();
-    }
-  }, []);
-
-  // Use useState to manage user - initialize from localStorage immediately
   const [userState, setUserState] = useState<UserDto | null>(() => {
     try {
       const stored = localStorage.getItem('admin_user');
@@ -237,67 +37,71 @@ export default function AdminLayout() {
         queryClient.setQueryData(['auth', 'me'], user);
         return user;
       }
-    } catch (err) {
+    } catch {
       // ignore
     }
     return null;
   });
 
-  const {
-    data: currentUser,
-    isLoading,
-    isError,
-    error,
-  } = useQuery<UserDto, ApiError>({
+  const { data: currentUser, isLoading, isError, error } = useQuery<UserDto, ApiError>({
     queryKey: ['auth', 'me'],
     queryFn: getCurrentUser,
     retry: false,
     enabled: !userState,
     staleTime: 5 * 60 * 1000,
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchInterval: 10 * 60 * 1000, // Refetch every 10 minutes to check session validity
+    refetchInterval: 10 * 60 * 1000,
   });
 
-  // Update state when API returns user
+  const { data: leads } = useQuery({
+    queryKey: ['leads'],
+    queryFn: getLeads,
+    enabled: !!userState || !!currentUser,
+    staleTime: 30 * 1000,
+  });
+
+  const { data: reviews } = useQuery({
+    queryKey: ['reviews-admin'],
+    queryFn: getReviewsAdmin,
+    enabled: !!userState || !!currentUser,
+    staleTime: 30 * 1000,
+  });
+
+  const newLeadsCount = useMemo(
+    () => (leads ?? []).filter((l) => l.status === 'new').length,
+    [leads],
+  );
+
+  const pendingReviewsCount = useMemo(
+    () => (reviews ?? []).filter((r) => r.status === 'pending').length,
+    [reviews],
+  );
+
   useEffect(() => {
     if (currentUser && (!userState || currentUser.id !== userState.id)) {
       setUserState(currentUser);
       try {
         localStorage.setItem('admin_user', JSON.stringify(currentUser));
-      } catch (err) {
+      } catch {
         // ignore
       }
     }
   }, [currentUser, userState]);
 
-  // Watch for cache updates (e.g., after login)
   useEffect(() => {
     const cachedUser = queryClient.getQueryData<UserDto>(['auth', 'me']);
     if (cachedUser && (!userState || cachedUser.id !== userState.id)) {
       setUserState(cachedUser);
-      try {
-        localStorage.setItem('admin_user', JSON.stringify(cachedUser));
-      } catch (err) {
-        // ignore
-      }
     }
   }, [queryClient, userState]);
 
-  const userToDisplay = userState;
-
-  // Handle session expiration - redirect to login if 401 error
   useEffect(() => {
     if (isError) {
       const err = error as ApiError;
       if (err.status === 401) {
-        // Session expired - clear all data and redirect to login
         queryClient.clear();
-        try {
-          localStorage.removeItem('admin_user');
-        } catch (err) {
-          // ignore
-        }
+        localStorage.removeItem('admin_user');
+        localStorage.removeItem('acoustic_token');
         setUserState(null);
         navigate('/login', { replace: true });
         message.warning('Sessiya tugadi. Iltimos, qayta kiring.');
@@ -311,170 +115,84 @@ export default function AdminLayout() {
     mutationFn: logout,
     onSuccess: () => {
       queryClient.clear();
-      try {
-        localStorage.removeItem('admin_user');
-      } catch (err) {
-        // ignore
-      }
+      localStorage.removeItem('admin_user');
       setUserState(null);
       navigate('/login', { replace: true });
     },
-    onError: (error) => {
-      message.error(error.message || 'Chiqishda xatolik');
-    },
+    onError: (err) => message.error(err.message || 'Chiqishda xatolik'),
   });
 
-  const handleLogout = async () => {
-    await logoutMutation();
-  };
+  const userToDisplay = userState;
 
-  // Note: Footer is rendered at the bottom of the Layout
-  // Version is also shown in the header for easy visibility
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
+
+  useEffect(() => {
+    fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' }).catch(() => undefined);
+  }, []);
 
   if (isLoading || isLoggingOut) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--admin-bg)]">
         <Spin size="large" />
       </div>
     );
   }
 
-  // Redirect to login if no user and not loading
   if (!userToDisplay && !isLoading) {
     navigate('/login', { replace: true });
     return null;
   }
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider 
-        theme="light" 
-        width={220} 
-        breakpoint="lg" 
-        collapsedWidth={0}
-        style={{
-          height: '100vh',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+    <div className="min-h-screen bg-[var(--admin-bg)]">
+      <div className="hidden lg:block">
+        <Sidebar
+          user={userToDisplay}
+          onLogout={() => logoutMutation()}
+          isLoggingOut={isLoggingOut}
+          leadBadge={newLeadsCount}
+          reviewBadge={pendingReviewsCount}
+        />
+      </div>
+
+      <Drawer
+        placement="left"
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        width={260}
+        styles={{ body: { padding: 0, background: '#0F172A' } }}
+        className="lg:hidden"
       >
-        <div style={{ padding: '16px', fontSize: '20px', fontWeight: 600, color: '#F07E22', flexShrink: 0 }}>
-          Acoustic.uz
+        <Sidebar
+          user={userToDisplay}
+          onLogout={() => logoutMutation()}
+          isLoggingOut={isLoggingOut}
+          leadBadge={newLeadsCount}
+          reviewBadge={pendingReviewsCount}
+        />
+      </Drawer>
+
+      <Header
+        user={userToDisplay}
+        onLogout={() => logoutMutation()}
+        notificationCount={newLeadsCount}
+      />
+
+      <main
+        className={[
+          'min-h-screen pt-16 transition-[margin-left] duration-300',
+          sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[260px]',
+        ].join(' ')}
+      >
+        <div className="p-4 md:p-6 lg:p-6">
+          <Outlet />
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-          <Menu
-            mode="inline"
-            selectedKeys={selectedKey}
-            items={menuItems}
-            onClick={({ key }) => navigate(key)}
-            style={{ borderRight: 0, height: '100%' }}
-          />
-        </div>
-      </Sider>
-      <Layout style={{ marginLeft: 220, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Header style={{ background: '#fff', padding: '0 24px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <h1 style={{ fontSize: '18px', fontWeight: 600, color: '#F07E22', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Admin panel
-                <span style={{ 
-                  fontSize: '11px', 
-                  fontWeight: 600,
-                  color: '#F07E22', 
-                  backgroundColor: '#fff3e0',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontFamily: 'monospace',
-                  border: '1px solid #ffcc80'
-                }}>
-                  v{versionInfo.version}
-                </span>
-              </h1>
-            </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                color: '#6b7280',
-                fontSize: '13px',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <LogoutOutlined />
-              Chiqish
-            </button>
-          </div>
-        </Header>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <Content style={{ 
-            margin: '24px', 
-            padding: '24px', 
-            background: '#fff', 
-            flex: 1, 
-            overflow: 'auto',
-            paddingBottom: '24px'
-          }}>
-            <Outlet />
-          </Content>
-          <Footer 
-            id="admin-footer"
-            style={{ 
-              textAlign: 'center', 
-              background: '#fafafa', 
-              borderTop: '2px solid #e8e8e8',
-              padding: '16px 24px',
-              fontSize: '13px',
-              color: '#595959',
-              flexShrink: 0,
-              width: '100%',
-              boxShadow: '0 -2px 8px rgba(0,0,0,0.08)',
-              minHeight: '60px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 500, color: '#262626' }}>Admin Panel</span>
-            <span style={{ color: '#d9d9d9', fontSize: '16px' }}>•</span>
-            <span 
-              style={{ fontWeight: 600, color: '#F07E22', fontSize: '14px' }}
-              title={`Version: ${versionInfo.version}\nBuild time: ${versionInfo.buildTime}\nWindow version: ${(window as any).__APP_VERSION__ || 'N/A'}`}
-            >
-              v{versionInfo.version}
-            </span>
-            <span style={{ color: '#d9d9d9', fontSize: '16px' }}>•</span>
-            <span 
-              title={`Build time: ${versionInfo.buildTime}`} 
-              style={{ 
-                fontFamily: 'monospace', 
-                fontSize: '12px',
-                color: '#8c8c8c',
-                backgroundColor: '#f5f5f5',
-                padding: '2px 6px',
-                borderRadius: '4px'
-              }}
-            >
-              {new Date(versionInfo.buildTime).toLocaleDateString('uz-UZ', { 
-                year: 'numeric', 
-                month: '2-digit', 
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </span>
-          </div>
-        </Footer>
-        </div>
-      </Layout>
-    </Layout>
+        <footer className="border-t border-[var(--admin-border)] px-6 py-3 text-center text-xs text-[var(--admin-text-muted)]">
+          Acoustic.uz Admin · v{versionInfo.version}
+        </footer>
+      </main>
+    </div>
   );
 }

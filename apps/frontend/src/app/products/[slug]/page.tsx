@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import ProductImage from '@/components/product-image';
 import Script from 'next/script';
 // Removed notFound import - we never crash, always show UI
 import type { Metadata } from 'next';
@@ -7,10 +8,9 @@ import { ArrowRight, Phone } from 'lucide-react';
 import {
   type ProductResponse,
   type UsefulArticleSummary,
-  type ProductCategoryResponse,
   type BrandResponse,
 } from '@/lib/api';
-import { getProductBySlug, getProductCategories, getBrands, getSettings } from '@/lib/api-server';
+import { getProductBySlug, getBrands, getSettings } from '@/lib/api-server';
 import ProductTabs from '@/components/product-tabs';
 import ProductSpecsTable from '@/components/product-specs-table';
 import ProductFeaturesList from '@/components/product-features-list';
@@ -22,11 +22,26 @@ import Sidebar from '@/components/sidebar';
 import { normalizeImageUrl } from '@/lib/image-utils';
 import { optimizeMetaDescription, optimizeTitle, generateSeoDescription } from '@/lib/seo-utils';
 
-// ISR: Revalidate every hour
-export const revalidate = 3600;
+// ISR: Revalidate every 5 minutes so slug/data fixes show soon without full redeploy
+export const revalidate = 300;
 
 const placeholderSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="100%" height="100%" fill="#F07E22"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-family="Arial" font-size="28">Acoustic</text></svg>`;
 const placeholderImage = `data:image/svg+xml,${encodeURIComponent(placeholderSvg)}`;
+const UPLOADS_ORIGIN = 'https://a.acoustic.uz';
+function toUploadsAbsolute(url: string | null | undefined): string {
+  if (!url?.trim()) return '';
+  const u = url.trim();
+  const pathMatch = u.match(/\/uploads\/[^?#]*/);
+  if (pathMatch) return `${UPLOADS_ORIGIN}${pathMatch[0]}`;
+  if (u.startsWith('uploads/')) return `${UPLOADS_ORIGIN}/${u}`;
+  const n = normalizeImageUrl(u);
+  if (n.includes('/uploads/')) {
+    const m = n.match(/\/uploads\/[^?#]*/);
+    return m ? `${UPLOADS_ORIGIN}${m[0]}` : n;
+  }
+  if (n.includes('acoustic.uz') && !n.includes('a.acoustic.uz')) return n.replace(/https?:\/\/[^\/]*acoustic\.uz/g, UPLOADS_ORIGIN);
+  return n;
+}
 
 const availabilityMap: Record<string, { uz: string; ru: string; schema: string; color: string }> = {
   'in-stock': {
@@ -50,25 +65,18 @@ const availabilityMap: Record<string, { uz: string; ru: string; schema: string; 
 };
 
 function formatPrice(price: string | number | null | undefined): string | null {
-  // Debug: Log price for troubleshooting
-  console.log('[formatPrice] Input price:', price, 'Type:', typeof price);
-  
   if (price === null || price === undefined || price === '') return null;
   
   const numPrice = typeof price === 'string' ? parseFloat(price) : Number(price);
-  console.log('[formatPrice] Parsed price:', numPrice, 'IsNaN:', isNaN(numPrice));
   
   if (isNaN(numPrice) || numPrice <= 0) return null;
   
-  const formatted = new Intl.NumberFormat('uz-UZ', {
+  return new Intl.NumberFormat('uz-UZ', {
     style: 'currency',
     currency: 'UZS',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(numPrice);
-  
-  console.log('[formatPrice] Formatted price:', formatted);
-  return formatted;
 }
 
 function combineBilingual(text1?: string | null, text2?: string | null): string {
@@ -137,7 +145,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const optimizedTitle = optimizeTitle(productName);
   const keywords = [
     product.brand?.name,
-    product.category?.name_uz || product.category?.name_ru,
+    product.formFactors?.[0],
     locale === 'ru' ? 'слуховой аппарат' : 'eshitish moslamasi',
   ].filter(Boolean) as string[];
   
@@ -147,14 +155,8 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     locale
   );
   
-  const mainImage = product?.galleryUrls?.[0] || product?.brand?.logo?.url || '';
-  const imageUrl = mainImage && mainImage.startsWith('http') 
-    ? mainImage 
-    : mainImage && mainImage.startsWith('/')
-    ? `${baseUrl}${mainImage}`
-    : mainImage
-    ? `${baseUrl}${mainImage}`
-    : `${baseUrl}/logo.png`;
+  const rawMain = product?.galleryUrls?.[0] || product?.brand?.logo?.url || '';
+  const imageUrl = rawMain ? toUploadsAbsolute(rawMain) || `${baseUrl}/logo.png` : `${baseUrl}/logo.png`;
   
   return {
     title: optimizedTitle,
@@ -194,22 +196,21 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 function buildJsonLd(product: ProductResponse, mainImage: string, locale: 'uz' | 'ru') {
   const baseUrl = 'https://acoustic.uz';
-  const offers = product.price
-    ? {
-        '@type': 'Offer',
-        price: product.price,
-        priceCurrency: 'UZS',
-        availability: product.availabilityStatus
-          ? `https://schema.org/${product.availabilityStatus === 'in-stock' ? 'InStock' : product.availabilityStatus === 'preorder' ? 'PreOrder' : 'OutOfStock'}`
-          : 'https://schema.org/InStock',
-      }
-    : undefined;
+  const parsedPrice =
+    product.price != null && product.price !== ''
+      ? Number(product.price)
+      : 0;
+  const offers = {
+    '@type': 'Offer',
+    price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
+    priceCurrency: 'UZS',
+    availability: product.availabilityStatus
+      ? `https://schema.org/${product.availabilityStatus === 'in-stock' ? 'InStock' : product.availabilityStatus === 'preorder' ? 'PreOrder' : 'OutOfStock'}`
+      : 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'Acoustic.uz' },
+  };
 
   const productName = locale === 'ru' ? product.name_ru : product.name_uz;
-  const categoryName = locale === 'ru' 
-    ? product.category?.name_ru 
-    : product.category?.name_uz;
-
   return [
     {
       '@context': 'https://schema.org',
@@ -218,13 +219,13 @@ function buildJsonLd(product: ProductResponse, mainImage: string, locale: 'uz' |
       description: locale === 'ru' 
         ? (product.description_ru || product.intro_ru)
         : (product.description_uz || product.intro_uz),
-      image: product.galleryUrls?.length ? product.galleryUrls : [mainImage],
+      image: product.galleryUrls?.length ? product.galleryUrls.map((u: string) => toUploadsAbsolute(u)) : [mainImage],
       brand: {
         '@type': 'Brand',
         name: product.brand?.name ?? 'Acoustic',
       },
       offers,
-      category: categoryName,
+      category: product.formFactors?.join(', ') || undefined,
       url: `${baseUrl}/products/${product.slug}`,
     },
     {
@@ -298,9 +299,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
   
   // Handle errors gracefully - getProductBySlug returns null if backend is down or product not found
   // The api-server wrapper ensures this never throws, so we can safely await it
-  const [product, categories, brands, settings] = await Promise.all([
+  const [product, brands, settings] = await Promise.all([
     getProductBySlug(params.slug, locale),
-    getProductCategories(locale),
     getBrands(locale),
     getSettings(locale),
   ]);
@@ -326,10 +326,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
         .slice(0, 4);
     }
     
-    // If not enough, add products from same category
-    if (relatedProducts.length < 4 && product.categoryId) {
+    // If not enough, add products with same form factor
+    if (relatedProducts.length < 4 && product.formFactors?.length) {
       const categoryProducts = await getProducts(
-        { ...relatedParams, categoryId: product.categoryId },
+        { ...relatedParams, formFactor: product.formFactors[0] },
         locale
       );
       const additionalProducts = categoryProducts.items
@@ -371,29 +371,33 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
   const availability = product.availabilityStatus ? availabilityMap[product.availabilityStatus] : undefined;
   
-  // Helper function to normalize image URL with placeholder fallback
-  const normalizeImageUrlWithPlaceholder = (url: string | null | undefined): string => {
-    // Early return for empty/null/undefined URLs
-    if (!url || url.trim() === '') {
-      return placeholderImage;
+  const toUploadsUrl = (url: string | null | undefined): string => {
+    if (!url || !url.trim()) return placeholderImage;
+    const u = url.trim();
+    const pathMatch = u.match(/\/uploads\/[^?#]*/);
+    if (pathMatch) return `${UPLOADS_ORIGIN}${pathMatch[0]}`;
+    if (u.startsWith('uploads/')) return `${UPLOADS_ORIGIN}/${u}`;
+    const n = normalizeImageUrl(u);
+    if (!n || n.startsWith('data:')) return placeholderImage;
+    if (n.includes('/uploads/')) {
+      const m = n.match(/\/uploads\/[^?#]*/);
+      return m ? `${UPLOADS_ORIGIN}${m[0]}` : placeholderImage;
     }
-    
-    // Normalize the URL
-    const normalized = normalizeImageUrl(url);
-    
-    // Check if normalized URL is valid
-    if (normalized && normalized.trim() && normalized.trim() !== '' && !normalized.startsWith("data:")) {
-      // Final check: ensure it's not acoustic.uz (should be a.acoustic.uz)
-      if (normalized.includes('acoustic.uz') && !normalized.includes('a.acoustic.uz')) {
-        // Force fix: replace any acoustic.uz with a.acoustic.uz
-        const fixed = normalized.replace(/https?:\/\/([^\/]*\.)?acoustic\.uz(\/|$)/g, 'https://a.acoustic.uz$2');
-        return fixed;
-      }
-      return normalized;
+    if (n.includes('acoustic.uz') && !n.includes('a.acoustic.uz')) return n.replace(/https?:\/\/[^\/]*acoustic\.uz/g, UPLOADS_ORIGIN);
+    return n;
+  };
+  const ensureUploadsFromA = (url: string): string => {
+    if (!url?.trim()) return url;
+    const pathMatch = url.trim().match(/\/uploads\/[^?#]*/);
+    if (pathMatch) return `${UPLOADS_ORIGIN}${pathMatch[0]}`;
+    if (url.trim().startsWith('uploads/')) return `${UPLOADS_ORIGIN}/${url.trim()}`;
+    const n = normalizeImageUrl(url);
+    if (n.includes('/uploads/')) {
+      const m = n.match(/\/uploads\/[^?#]*/);
+      return m ? `${UPLOADS_ORIGIN}${m[0]}` : n;
     }
-    
-    // Return placeholder if normalization failed
-    return placeholderImage;
+    if (n.includes('acoustic.uz') && !n.includes('a.acoustic.uz')) return n.replace(/https?:\/\/[^\/]*acoustic\.uz/g, UPLOADS_ORIGIN);
+    return n;
   };
   
   // Try multiple image sources: galleryUrls, image field, images array, brand logo
@@ -402,20 +406,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
     || ((product as any)?.images?.[0]?.url)
     || product.brand?.logo?.url 
     || null;
-  console.log("[ProductPage] product.galleryUrls (raw from API):", product.galleryUrls);
-  console.log("[ProductPage] product.brand?.logo?.url (raw from API):", product.brand?.logo?.url);
-  console.log("[ProductPage] rawMainImage:", rawMainImage);
-  const mainImage = rawMainImage ? normalizeImageUrlWithPlaceholder(rawMainImage) : placeholderImage;
-  console.log("[ProductPage] mainImage after normalization:", mainImage);
-  // Build gallery from multiple sources
-  const gallery = product.galleryUrls?.length 
-    ? product.galleryUrls.map(normalizeImageUrlWithPlaceholder)
+  const mainImage = rawMainImage ? toUploadsUrl(rawMainImage) : placeholderImage;
+  const gallery = product.galleryUrls?.length
+    ? product.galleryUrls.map(toUploadsUrl)
     : (product as any)?.images?.length
-      ? (product as any).images.map((img: any) => normalizeImageUrlWithPlaceholder(img?.url || img))
+      ? (product as any).images.map((img: any) => toUploadsUrl(img?.url || img))
       : (product as any)?.image?.url
-        ? [normalizeImageUrlWithPlaceholder((product as any).image.url)]
-        : product.brand?.logo?.url 
-          ? [normalizeImageUrlWithPlaceholder(product.brand.logo.url)] 
+        ? [toUploadsUrl((product as any).image.url)]
+        : product.brand?.logo?.url
+          ? [toUploadsUrl(product.brand.logo.url)]
           : [];
   const features = product.features_uz?.length || product.features_ru?.length 
     ? [...(product.features_uz || []), ...(product.features_ru || [])].join('\n')
@@ -608,9 +607,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
                 {/* Column 1: Image */}
                 <div className="space-y-3">
-                  {/* Main Image */}
+                  {/* Main Image — client-side URL fix so rasmlar doim a.acoustic.uz dan yuklansin */}
                   <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-white border border-border/40">
-                    <Image
+                    {(product.discountPercent ?? 0) > 0 && (
+                      <span className="absolute top-3 left-3 z-10 rounded bg-rose-500 px-2.5 py-1 text-sm font-semibold text-white shadow">
+                        {isRu ? 'Скидка' : 'Chegirma'} −{product.discountPercent}%
+                      </span>
+                    )}
+                    <ProductImage
                       src={mainImage || placeholderImage}
                       alt={locale === 'ru' 
                         ? `${getBilingualText(product.name_uz, product.name_ru, locale)} — Слуховой аппарат`
@@ -633,7 +637,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                           : `${productName} — Qo'shimcha rasm ${index + 2}`;
                         return (
                           <div key={index} className="relative aspect-square w-full overflow-hidden rounded bg-white border border-border/40">
-                            <Image
+                            <ProductImage
                               src={image}
                               alt={galleryImageAlt}
                               fill
@@ -669,6 +673,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   </p>
                   {priceFormatted && (
                     <div className="border-2 border-red-500 bg-red-50 rounded-lg p-3 mt-2">
+                      {(product.discountPercent ?? 0) > 0 && product.originalPrice != null && product.originalPrice !== '' && (
+                        <p className="text-sm text-muted-foreground line-through mb-0.5">
+                          {isRu ? 'Было' : 'Eski narx'}: {formatPrice(product.originalPrice)}
+                        </p>
+                      )}
                       <p className="text-base font-semibold text-foreground">
                         <span className="font-bold">{isRu ? 'Цена' : 'Narxi'}: </span> {priceFormatted}
                       </p>
@@ -703,80 +712,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           {/* Product Categories - Mobile (always shown, independent of sidebar) */}
           <div className="mt-6 space-y-6 xl:hidden">
-            {/* Product Categories */}
-            <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">
-                  {isRu ? 'Каталог слуховых аппаратов' : 'Eshitish apparatlari katalogi'}
-                </h3>
-                <div className="space-y-2">
-                  {categories.slice(0, 1).map((category) => (
-                    <Link
-                      key={category.id}
-                      href={`/catalog/${category.slug}`}
-                      className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 p-3 transition hover:border-brand-primary/50 hover:bg-white"
-                    >
-                      {category.image?.url ? (
-                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-white">
-                          <Image
-                            src={category.image.url}
-                            alt={locale === 'ru' 
-                              ? `Категория: ${getBilingualText(category.name_uz, category.name_ru, locale)}`
-                              : `Kategoriya: ${getBilingualText(category.name_uz, category.name_ru, locale)}`}
-                            fill
-                            sizes="40px"
-                            className="object-contain p-1"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-white border border-border/40">
-                          <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      )}
-                      <span className="text-sm text-foreground">
-                        {getBilingualText(category.name_uz, category.name_ru, locale)}
-                      </span>
-                    </Link>
-                  ))}
-                  
-                  {/* Additional Category Links */}
-                  <Link
-                    href="/catalog?categoryId=batteries"
-                    className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 p-3 transition hover:border-brand-primary/50 hover:bg-white"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-white border border-border/40">
-                      <div className="h-6 w-4 rounded-sm border-2 border-foreground/30"></div>
-                    </div>
-                    <span className="text-sm text-foreground">
-                      {isRu ? 'Батарейки для слуховых аппаратов' : 'Eshitish apparatlari uchun batareyalar'}
-                    </span>
-                  </Link>
-                  
-                  <Link
-                    href="/catalog?categoryId=care"
-                    className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 p-3 transition hover:border-brand-primary/50 hover:bg-white"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-white border border-border/40">
-                      <div className="h-5 w-5 rounded border border-foreground/30"></div>
-                    </div>
-                    <span className="text-sm text-foreground">
-                      {isRu ? 'Средства по уходу' : 'Parvarish vositalari'}
-                    </span>
-                  </Link>
-                  
-                  <Link
-                    href="/catalog?categoryId=accessories"
-                    className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 p-3 transition hover:border-brand-primary/50 hover:bg-white"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-white border border-border/40">
-                      <div className="h-6 w-4 rounded border border-foreground/30"></div>
-                    </div>
-                    <span className="text-sm text-foreground">
-                      {isRu ? 'Беспроводные аксессуары' : 'Simsiz aksessuarlar'}
-                    </span>
-                  </Link>
-                </div>
-            </div>
-
             {/* Brands */}
             {brands.length > 0 && (
               <div className="space-y-3">
@@ -826,8 +761,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                       >
                         {relatedImage ? (
                           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-white">
-                            <Image
-                              src={normalizeImageUrl(relatedImage)}
+                            <ProductImage
+                              src={ensureUploadsFromA(relatedImage)}
                               alt={relatedProductName}
                               fill
                               sizes="48px"

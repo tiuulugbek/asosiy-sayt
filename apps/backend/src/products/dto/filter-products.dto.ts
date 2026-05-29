@@ -13,11 +13,6 @@ export class FilterProductsDto {
   @IsString()
   brandId?: string;
 
-  @ApiPropertyOptional({ description: 'Kategoriya ID' })
-  @IsOptional()
-  @IsString()
-  categoryId?: string;
-
   @ApiPropertyOptional({ description: 'Katalog ID' })
   @IsOptional()
   @IsString()

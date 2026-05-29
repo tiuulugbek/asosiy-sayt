@@ -3,6 +3,12 @@
  * Converts relative URLs to absolute URLs using the API base URL
  */
 
+const UPLOADS_ORIGIN = 'https://a.acoustic.uz';
+function forceUploadsOrigin(s: string): string {
+  if (!s || !s.includes('acoustic.uz')) return s;
+  return s.replace(/https?:\/\/[^\/]*acoustic\.uz/g, UPLOADS_ORIGIN);
+}
+
 /**
  * Normalize image URL for display in frontend
  * Converts relative URLs (/uploads/...) to absolute URLs (https://a.acoustic.uz/uploads/...)
@@ -17,7 +23,11 @@ export function normalizeImageUrl(url: string | null | undefined): string {
   
   // Trim whitespace
   url = url.trim();
-  
+  // Relative path without leading slash (e.g. "uploads/xxx") -> "/uploads/xxx" so browser doesn't resolve to current domain
+  if (url.startsWith('uploads/')) {
+    url = `/${url}`;
+  }
+
   // If already absolute URL, ensure pathname is properly encoded and fix domain
   if (url.startsWith('http://') || url.startsWith('https://')) {
     try {
@@ -90,8 +100,7 @@ export function normalizeImageUrl(url: string | null | undefined): string {
         // Otherwise keep filename as is
       }
       
-      const finalUrl = urlObj.toString();
-      return finalUrl;
+      return forceUploadsOrigin(urlObj.toString());
     } catch {
       // If URL parsing fails, try simple string replacement as fallback
       let fixedUrl = url;
@@ -135,7 +144,7 @@ export function normalizeImageUrl(url: string | null | undefined): string {
       fixedUrl = fixedUrl.replace(/https?:\/\/api\.acoustic\.uz\//g, 'https://a.acoustic.uz/');
       fixedUrl = fixedUrl.replace(/https?:\/\/api\.acoustic\.uz\/uploads\//g, 'https://a.acoustic.uz/uploads/');
       
-      return fixedUrl;
+      return forceUploadsOrigin(fixedUrl);
     }
   }
   
@@ -185,8 +194,8 @@ export function normalizeImageUrl(url: string | null | undefined): string {
     }
     return `${baseUrl}${url}`;
   }
-  
-  return url;
+
+  return forceUploadsOrigin(url);
 }
 
 /**

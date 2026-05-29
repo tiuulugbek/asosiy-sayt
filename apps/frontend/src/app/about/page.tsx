@@ -64,22 +64,19 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = detectLocale();
   const page = await getPageBySlug('about', locale);
   
-  if (!page || page.status !== 'published') {
-    return {
-      title: locale === 'ru' ? 'О нас — Acoustic.uz' : 'Biz haqimizda — Acoustic.uz',
-      description: locale === 'ru' 
-        ? 'Информация о центре Acoustic'
-        : 'Acoustic markazi haqida ma\'lumot',
-    };
-  }
-
-  const title = getBilingualText(page.metaTitle_uz, page.metaTitle_ru, locale) || 
-                getBilingualText(page.title_uz, page.title_ru, locale);
-  const description = getBilingualText(page.metaDescription_uz, page.metaDescription_ru, locale);
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://acoustic.uz';
+  const pageUrl = `${baseUrl}/about`;
+  const description =
+    locale === 'ru'
+      ? 'Acoustic — сеть современных центров слуха в Узбекистане. Диагностика, слуховые аппараты и детская аудиология.'
+      : "Acoustic — O'zbekistondagi eshitish salomatligini yaxshilashga ixtisoslashgan zamonaviy eshitish markazlari tarmog'i. Diagnostika, eshitish apparatlari va bolalar audiologiyasi.";
+  const title =
+    locale === 'ru' ? 'О нас' : 'Biz haqimizda';
 
   return {
     title: `${title} — Acoustic.uz`,
-    description: description || undefined,
+    description,
+    alternates: { canonical: pageUrl },
   };
 }
 
@@ -127,7 +124,7 @@ export default async function AboutPage() {
           { label: locale === 'ru' ? 'Главная' : 'Bosh sahifa', href: '/' },
           { label: title },
         ]}
-        title={title}
+        title={locale === 'ru' ? 'Acoustic — сеть центров слуха в Узбекистане' : "Acoustic — O'zbekistondagi eshitish markazi tarmog'i"}
       />
 
       {/* Hero Section */}
@@ -172,7 +169,7 @@ export default async function AboutPage() {
                 <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
                   <iframe
                     src={`https://www.youtube.com/embed/${videoId}`}
-                    title={title}
+                    title={locale === 'ru' ? 'Acoustic — сеть центров слуха в Узбекистане' : "Acoustic — O'zbekistondagi eshitish markazi tarmog'i"}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                     className="absolute inset-0 h-full w-full"

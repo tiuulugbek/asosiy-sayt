@@ -14,7 +14,7 @@ if [ -z "$1" ]; then
 fi
 
 PROD_DIR="/var/www/acoustic.uz"
-LOCAL_DIR="/root/acoustic.uz"
+LOCAL_DIR="/var/www/acoustic.uz"
 
 echo "📤 Build fayllarni yuklash: $1"
 echo ""

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { User, Phone, Mail, MessageSquare, Send, CheckCircle2 } from 'lucide-react';
 import type { Locale } from '@/lib/locale';
+import { getStoredUtmParams } from '@/lib/utm';
 
 interface ContactFormProps {
   locale: Locale;
@@ -36,6 +37,7 @@ export default function ContactForm({ locale }: ContactFormProps) {
           email: email.trim() || undefined,
           message: message.trim() || undefined,
           source: 'contact-page',
+          utmParams: getStoredUtmParams(),
         }),
       });
 

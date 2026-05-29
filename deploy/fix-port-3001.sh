@@ -32,7 +32,7 @@ rm -rf /root/.pm2/*.sock /root/.pm2/pm2.log 2>/dev/null || true
 
 # 4. Backend ni to'g'ridan-to'g'ri ishga tushirish (test)
 echo "🚀 4. Backend ni to'g'ridan-to'g'ri ishga tushirish (test)..."
-cd /root/acoustic.uz/apps/backend
+cd /var/www/acoustic.uz/apps/backend
 
 # Background da ishga tushirish
 nohup node dist/main.js > /tmp/backend-test.log 2>&1 &
@@ -73,7 +73,7 @@ fi
 # 6. PM2 ni qayta ishga tushirish
 echo ""
 echo "🔄 6. PM2 ni qayta ishga tushirish..."
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 
 # PM2 ni ishga tushirish (daemon yaratish uchun)
 pm2 list >/dev/null 2>&1 || true
@@ -86,7 +86,7 @@ if pm2 start deploy/ecosystem.config.js --only acoustic-backend 2>&1 | grep -q "
 else
     echo "   ⚠️  PM2 orqali ishga tushirishda muammo"
     echo "   Qo'lda ishga tushirish:"
-    echo "   cd /root/acoustic.uz/apps/backend"
+    echo "   cd /var/www/acoustic.uz/apps/backend"
     echo "   nohup node dist/main.js > /var/log/pm2/acoustic-backend-out.log 2>&1 &"
 fi
 

@@ -41,6 +41,8 @@ import {
 } from '../lib/api';
 import { normalizeImageUrl } from '../utils/image';
 import { compressImage } from '../utils/image-compression';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
 
 type ViewMode = 'grid' | 'list';
 type FileType = 'all' | 'image' | 'other';
@@ -220,57 +222,67 @@ export default function MediaPage() {
     );
   }
 
-  return (
-    <div>
-      {/* Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Media kutubxonasi</h1>
-        <Space>
-          <Upload {...uploadProps}>
-            <Button type="primary" icon={<UploadOutlined />} loading={uploading}>
-              Rasm yuklash
-            </Button>
-          </Upload>
-          <Button
-            icon={viewMode === 'grid' ? <UnorderedListOutlined /> : <AppstoreOutlined />}
-            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-          >
-            {viewMode === 'grid' ? 'Ro\'yxat' : 'Grid'}
-          </Button>
-        </Space>
-      </div>
+  const handleDropFiles = async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    setUploading(true);
+    try {
+      for (const file of list) {
+        const compressed = await compressImage(file);
+        await uploadMutation({ file: compressed });
+      }
+      message.success(`${list.length} ta fayl yuklandi`);
+    } catch (e) {
+      message.error((e as ApiError).message || 'Yuklashda xatolik');
+    } finally {
+      setUploading(false);
+    }
+  };
 
-      {/* Filters */}
-      <Card style={{ marginBottom: 24 }}>
-        <Row gutter={16}>
-          <Col xs={24} sm={12} md={8}>
-            <Input
-              placeholder="Qidirish..."
-              prefix={<SearchOutlined />}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              allowClear
-            />
-          </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Select
-              style={{ width: '100%' }}
-              value={fileTypeFilter}
-              onChange={setFileTypeFilter}
-              options={[
-                { label: 'Barchasi', value: 'all' },
-                { label: 'Rasmlar', value: 'image' },
-                { label: 'Boshqa', value: 'other' },
-              ]}
-            />
-          </Col>
-          <Col xs={24} sm={24} md={8}>
-            <div style={{ textAlign: 'right', color: '#666', fontSize: 14 }}>
-              Jami: {filteredMedia.length} ta
-            </div>
-          </Col>
-        </Row>
-      </Card>
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files?.length) void handleDropFiles(e.dataTransfer.files);
+      }}
+    >
+      <PageHeader
+        title="Media kutubxona"
+        description="Rasmlar va fayllar"
+        count={filteredMedia.length}
+        action={
+          <Space>
+            <Upload {...uploadProps}>
+              <Button type="primary" icon={<UploadOutlined />} loading={uploading}>
+                Rasm yuklash
+              </Button>
+            </Upload>
+            <Button
+              icon={viewMode === 'grid' ? <UnorderedListOutlined /> : <AppstoreOutlined />}
+              onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            >
+              {viewMode === 'grid' ? "Ro'yxat" : 'Grid'}
+            </Button>
+          </Space>
+        }
+      />
+
+      <FilterPanel onClear={() => { setSearchQuery(''); setFileTypeFilter('all'); }}>
+        <Input placeholder="Qidirish..." prefix={<SearchOutlined />} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} allowClear size="large" className="min-w-[240px] flex-1" />
+        <Select value={fileTypeFilter} onChange={setFileTypeFilter} className="min-w-[140px]" options={[
+          { label: 'Barchasi', value: 'all' },
+          { label: 'Rasmlar', value: 'image' },
+          { label: 'Boshqa', value: 'other' },
+        ]} />
+      </FilterPanel>
+
+      <div className="mb-4 rounded-lg border-2 border-dashed border-[var(--admin-border)] bg-slate-50/50 px-4 py-6 text-center text-sm text-[var(--admin-text-muted)] dark:bg-slate-900/30">
+        Fayllarni shu yerga tashlang yoki &quot;Rasm yuklash&quot; tugmasidan foydalaning
+        {uploading && <span className="ml-2 text-[#2563EB]">Yuklanmoqda…</span>}
+      </div>
 
       {/* Media Grid/List */}
       {filteredMedia.length === 0 ? (
@@ -467,7 +479,7 @@ export default function MediaPage() {
         {editingMedia && (
           <div style={{ marginBottom: 16 }}>
             <Image
-              src={editingMedia.url}
+              src={normalizeImageUrl(editingMedia.url)}
               alt={editingMedia.alt_uz || editingMedia.filename}
               width="100%"
               style={{ borderRadius: 8 }}

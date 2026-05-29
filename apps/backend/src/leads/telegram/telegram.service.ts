@@ -3,6 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import TelegramBot from 'node-telegram-bot-api';
 import { SettingsService } from '../../settings/settings.service';
 
+/** Telegram MarkdownV1 da maxsus belgilarni escape qilish (user input uchun) */
+function escapeMarkdown(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  return String(text).replace(/\\/g, '\\\\').replace(/([_*\[\]()~`>#+=|{}.!-])/g, '\\$1');
+}
+
 @Injectable()
 export class TelegramService {
   private formsBot: TelegramBot | null = null; // Bot for forms (sends to Telegram)
@@ -24,6 +30,7 @@ export class TelegramService {
     source?: string;
     message?: string;
     productId?: string;
+    utmParams?: Record<string, string>;
   }): Promise<boolean> {
     try {
       const settings = await this.settingsService.get();
@@ -41,12 +48,16 @@ export class TelegramService {
         ? `#${lead.source.replace(/[^a-zA-Z0-9_]/g, '_')}` 
         : '';
 
+      const utmLine = lead.utmParams && Object.keys(lead.utmParams).length > 0
+        ? `📢 *Reklama:* ${Object.entries(lead.utmParams).map(([k, v]) => `${k}=${v}`).join(', ')}\n`
+        : '';
       const message = `
 🆕 *Yangi so'rov*
 👤 *Ism:* ${lead.name}
 📞 *Telefon:* ${lead.phone}
 ${lead.email ? `📧 *Email:* ${lead.email}\n` : ''}
 ${sourceHashtag ? `${sourceHashtag}\n` : ''}
+${utmLine}
 ${lead.message ? `💬 *Xabar:* ${lead.message}\n` : ''}
 ${lead.productId ? `🛍️ *Mahsulot ID:* ${lead.productId}\n` : ''}
       `.trim();
@@ -122,11 +133,11 @@ ${lead.productId ? `🛍️ *Mahsulot ID:* ${lead.productId}\n` : ''}
 
       const message = `
 🔄 *Lead holati yangilandi*
-👤 *Ism:* ${lead.name}
-📞 *Telefon:* ${lead.phone}
-📋 *Eski holat:* ${oldStatusLabel}
-📋 *Yangi holat:* ${newStatusLabel}
-🆔 *ID:* ${lead.id.slice(0, 8)}...
+👤 *Ism:* ${escapeMarkdown(lead.name)}
+📞 *Telefon:* ${escapeMarkdown(lead.phone)}
+📋 *Eski holat:* ${escapeMarkdown(oldStatusLabel)}
+📋 *Yangi holat:* ${escapeMarkdown(newStatusLabel)}
+🆔 *ID:* ${escapeMarkdown(lead.id.slice(0, 8))}...
       `.trim();
 
       await this.formsBot.sendMessage(settings.telegramChatId, message, {
@@ -168,9 +179,9 @@ ${lead.productId ? `🛍️ *Mahsulot ID:* ${lead.productId}\n` : ''}
 
       const message = `
 🗑️ *Lead o'chirildi*
-👤 *Ism:* ${lead.name}
-📞 *Telefon:* ${lead.phone}
-${sourceHashtag ? `${sourceHashtag}\n` : ''}🆔 *ID:* ${lead.id.slice(0, 8)}...
+👤 *Ism:* ${escapeMarkdown(lead.name)}
+📞 *Telefon:* ${escapeMarkdown(lead.phone)}
+${sourceHashtag ? `${sourceHashtag}\n` : ''}🆔 *ID:* ${escapeMarkdown(lead.id.slice(0, 8))}...
       `.trim();
 
       await this.formsBot.sendMessage(settings.telegramChatId, message, {

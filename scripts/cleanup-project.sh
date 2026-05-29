@@ -4,7 +4,7 @@
 
 set -e
 
-PROJECT_DIR="/root/acoustic.uz"
+PROJECT_DIR="/var/www/acoustic.uz"
 cd "$PROJECT_DIR"
 
 echo "=== Acoustic.uz loyihasini tozalash ==="

@@ -51,7 +51,7 @@ export default function BranchesPageContent({
           { label: locale === 'ru' ? 'Главная' : 'Bosh sahifa', href: '/' },
           { label: locale === 'ru' ? 'Наши адреса' : 'Bizning manzillarimiz' },
         ]}
-        title={locale === 'ru' ? 'Acoustic — Филиалы центра слуха' : 'Acoustic — Eshitish markazi filiallari'}
+        title={locale === 'ru' ? 'Наши филиалы' : 'Bizning filiallarimiz'}
         icon={<MapPin className="h-8 w-8 text-white" />}
       />
 

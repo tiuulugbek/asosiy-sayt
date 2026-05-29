@@ -15,10 +15,10 @@ PGPASSWORD='Acoustic##4114' psql -h localhost -p 5432 -U acoustic_user -d acoust
         for dir in \
             "/var/www/acoustic.uz/apps/backend/uploads" \
             "/var/www/acoustic.uz/apps/backend/apps/backend/uploads" \
-            "/root/acoustic.uz/apps/backend/uploads" \
-            "/root/acoustic.uz/apps/backend/apps/backend/uploads" \
+            "/var/www/acoustic.uz/apps/backend/uploads" \
+            "/var/www/acoustic.uz/apps/backend/apps/backend/uploads" \
             "/var/www/acoustic.uz/uploads" \
-            "/root/acoustic.uz/uploads"; do
+            "/var/www/acoustic.uz/uploads"; do
             if [ -f "$dir/$filename" ]; then
                 echo "   ✅ Topildi: $dir/$filename"
                 found=true

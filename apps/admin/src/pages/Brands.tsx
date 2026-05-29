@@ -1,17 +1,12 @@
 import { useMemo, useState } from 'react';
-import {
-  Table,
-  Button,
-  Space,
-  Modal,
-  Form,
-  Input,
-  Popconfirm,
-  message,
-  Tag,
-  Upload,
-} from 'antd';
-import { UploadOutlined, FolderOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { Button, Modal, Form, Input, message, Upload } from 'antd';
+import { PlusOutlined, UploadOutlined, FolderOutlined, DeleteOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
+import ListTable from '../components/common/ListTable';
+import TableActions from '../components/common/TableActions';
+import LangTabs from '../components/common/LangTabs';
 import type { UploadProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -32,13 +27,16 @@ import { normalizeImageUrl } from '../utils/image';
 import MediaLibraryModal from '../components/MediaLibraryModal';
 import { compressImage } from '../utils/image-compression';
 import { createSlug } from '../utils/slug';
+import { useTableLoading } from '../hooks/useTableLoading';
 
 export default function BrandsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: brands, isLoading } = useQuery<BrandDto[], ApiError>({
+  const { data: brands, isLoading, isFetching, isPending } = useQuery<BrandDto[], ApiError>({
     queryKey: ['brands'],
     queryFn: getBrands,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<BrandDto | null>(null);
@@ -46,6 +44,7 @@ export default function BrandsPage() {
   const [previewLogo, setPreviewLogo] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoModalOpen, setLogoModalOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
 
   const { data: mediaList } = useQuery<MediaDto[], ApiError>({
     queryKey: ['media'],
@@ -208,55 +207,60 @@ export default function BrandsPage() {
     }
   };
 
+  const filteredBrands = useMemo(() => {
+    if (!searchText.trim()) return brands ?? [];
+    const q = searchText.toLowerCase();
+    return (brands ?? []).filter(
+      (b) =>
+        b.name.toLowerCase().includes(q) ||
+        b.slug.toLowerCase().includes(q) ||
+        (b.desc_uz?.toLowerCase().includes(q) ?? false),
+    );
+  }, [brands, searchText]);
+
   const columns: ColumnsType<BrandDto> = useMemo(
     () => [
       {
         title: 'Brend',
-        dataIndex: 'name',
-        key: 'name',
-        render: (value: string) => <strong>{value}</strong>,
+        key: 'brand',
+        render: (_, record) => (
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-16 shrink-0 items-center justify-center rounded-lg border border-[var(--admin-border)] bg-white p-1">
+              {record.logo?.url ? (
+                <img
+                  src={normalizeImageUrl(record.logo.url)}
+                  alt={record.name}
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <span className="text-[10px] text-[var(--admin-text-muted)]">—</span>
+              )}
+            </div>
+            <strong>{record.name}</strong>
+          </div>
+        ),
       },
-      {
-        title: 'Slug',
-        dataIndex: 'slug',
-        key: 'slug',
-      },
+      { title: 'Slug', dataIndex: 'slug', key: 'slug', width: 160 },
       {
         title: "Ta'rif (uz)",
         dataIndex: 'desc_uz',
         key: 'desc_uz',
-        render: (value: string | undefined) => value || '—',
-      },
-      {
-        title: 'Logo',
-        key: 'logo',
-        render: (_, record) =>
-          record.logo?.url ? (
-            <img src={normalizeImageUrl(record.logo.url)} alt={record.name} style={{ width: 64, height: 32, objectFit: 'contain' }} />
-          ) : (
-            <Tag color="default">Logo yo'q</Tag>
-          ),
+        ellipsis: true,
+        render: (value: string | undefined) => (
+          <span title={value ?? ''}>{value ? (value.length > 60 ? `${value.slice(0, 60)}…` : value) : '—'}</span>
+        ),
       },
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right',
         render: (_, record) => (
-          <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Brendni o‘chirish"
-              description="Ushbu brendni o‘chirishni tasdiqlang"
-              okText="Ha"
-              cancelText="Yo‘q"
-              onConfirm={() => handleDelete(record)}
-            >
-              <Button danger size="small" loading={isDeleting}>
-                O‘chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions
+            onEdit={() => navigate(`/brands/${record.id}/edit`)}
+            onDelete={() => handleDelete(record)}
+            loading={isDeleting}
+          />
         ),
       },
     ],
@@ -265,19 +269,30 @@ export default function BrandsPage() {
 
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={openCreateModal}>
-          Yangi brend
-        </Button>
-      </Space>
-
-      <Table
-        loading={isLoading}
-        dataSource={brands ?? []}
-        columns={columns}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
+      <PageHeader
+        title="Brendlar"
+        description="Mahsulot brendlarini boshqaring"
+        count={filteredBrands.length}
+        loading={tableLoading}
+        action={
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/brands/new')}>
+            Yangi brend
+          </Button>
+        }
       />
+
+      <FilterPanel onClear={() => setSearchText('')}>
+        <Input
+          placeholder="Brend nomi yoki slug bo'yicha qidirish..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          allowClear
+          size="large"
+          className="min-w-[280px] flex-1"
+        />
+      </FilterPanel>
+
+      <ListTable loading={tableLoading} dataSource={filteredBrands} columns={columns} scroll={{ x: 800 }} />
 
       <Modal
         title={editingBrand ? 'Brendni tahrirlash' : 'Yangi brend'}

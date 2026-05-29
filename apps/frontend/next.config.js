@@ -17,11 +17,9 @@ const nextConfig = {
   // Enable source maps in production for debugging hydration errors
   productionBrowserSourceMaps: true,
   
-  // Use relative URLs for static assets to avoid domain issues
-  // This ensures static assets are loaded from the same domain as the page
-  // undefined means Next.js will use relative URLs based on the current page URL
-  // Don't set assetPrefix to avoid absolute URL issues with reverse proxy
-  // assetPrefix: undefined, // Let Next.js handle it automatically
+  // Chunk URL lar doim /_next/ bo'lishi kerak; assetPrefix/basePath bo'lmasin
+  assetPrefix: undefined,
+  basePath: '',
   
   // Webpack configuration for path resolution
   webpack: (config, { isServer }) => {
@@ -67,6 +65,17 @@ const nextConfig = {
         pathname: '/uploads/**',
       },
     ],
+  },
+  async redirects() {
+    return [
+      { source: '/contacts', destination: '/contact', permanent: true },
+      {
+        source: '/services/bolalarda-eshitishni-diagnostika-qilish',
+        destination: '/services/kids-test',
+        permanent: true,
+      },
+      { source: '/catalog/batteries', destination: '/catalog?productType=accessories', permanent: true },
+    ];
   },
   // Removed i18n config - using cookie-based locale detection instead
   // i18n: {

@@ -2,7 +2,7 @@
 
 ## ✅ Nima qilingan
 
-1. ✅ PM2 `ecosystem.config.js` `/root/acoustic.uz` uchun yangilandi
+1. ✅ PM2 `ecosystem.config.js` `/var/www/acoustic.uz` uchun yangilandi
 2. ✅ Deployment skriptlari yaratildi
 3. ✅ Qo'llanma yaratildi
 
@@ -11,14 +11,14 @@
 ### Variant 1: To'liq deployment skripti
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 bash deploy/deploy-from-root.sh
 ```
 
 ### Variant 2: PM2 ni yangilash
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 bash deploy/update-pm2-to-root.sh
 ```
 
@@ -30,7 +30,7 @@ pm2 kill
 rm -rf /root/.pm2
 
 # 2. PM2 ni qayta ishga tushirish
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pm2 start deploy/ecosystem.config.js
 pm2 save
 
@@ -40,8 +40,8 @@ pm2 list
 
 ## 📋 Konfiguratsiya
 
-- **Backend**: `/root/acoustic.uz/apps/backend/dist/main.js`
-- **Frontend**: `/root/acoustic.uz/apps/frontend` (npm start)
+- **Backend**: `/var/www/acoustic.uz/apps/backend/dist/main.js`
+- **Frontend**: `/var/www/acoustic.uz/apps/frontend` (npm start)
 - **Portlar**: Backend 3001, Frontend 3002
 - **Loglar**: `/var/log/pm2/`
 

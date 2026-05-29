@@ -7,26 +7,26 @@
 Local Mac kompyuteringizdan terminalda:
 
 ```bash
-scp ~/Desktop/products-to-import.json user@your-server-ip:/root/acoustic.uz/
+scp ~/Desktop/products-to-import.json user@your-server-ip:/var/www/acoustic.uz/
 ```
 
 Yoki agar SSH key ishlatayotgan bo'lsangiz:
 
 ```bash
-scp ~/Desktop/products-to-import.json user@your-server-ip:/root/acoustic.uz/products-to-import.json
+scp ~/Desktop/products-to-import.json user@your-server-ip:/var/www/acoustic.uz/products-to-import.json
 ```
 
 ### Variant B: Rsync orqali (tezroq, katta fayllar uchun)
 
 ```bash
-rsync -avz ~/Desktop/products-to-import.json user@your-server-ip:/root/acoustic.uz/
+rsync -avz ~/Desktop/products-to-import.json user@your-server-ip:/var/www/acoustic.uz/
 ```
 
 ### Variant C: SFTP orqali
 
 ```bash
 sftp user@your-server-ip
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 put ~/Desktop/products-to-import.json
 exit
 ```
@@ -37,14 +37,14 @@ Agar allaqachon serverga SSH orqali ulangan bo'lsangiz:
 
 ```bash
 # Local Mac'da yangi terminal oynasida:
-cat ~/Desktop/products-to-import.json | ssh user@your-server-ip "cat > /root/acoustic.uz/products-to-import.json"
+cat ~/Desktop/products-to-import.json | ssh user@your-server-ip "cat > /var/www/acoustic.uz/products-to-import.json"
 ```
 
 ## 2. Serverga Ulanish va Faylni Tekshirish
 
 ```bash
 ssh user@your-server-ip
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 ls -lh products-to-import.json
 ```
 
@@ -55,14 +55,14 @@ Fayl mavjudligini va hajmini tekshiring.
 ### Variant A: To'g'ridan-to'g'ri
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pnpm run import:products
 ```
 
 ### Variant B: PM2 orqali (agar backend PM2 da ishlayotgan bo'lsa)
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pnpm run import:products
 ```
 
@@ -73,7 +73,7 @@ pnpm run import:products
 screen -S import-products
 
 # Scriptni ishga tushirish
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pnpm run import:products
 
 # Screen'dan chiqish: Ctrl+A, keyin D
@@ -86,7 +86,7 @@ Script ishga tushgandan keyin, quyidagilarni tekshiring:
 
 ```bash
 # Mahsulotlar sonini tekshirish
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pnpm --filter @acoustic/backend exec prisma studio
 # yoki
 pnpm run db:studio
@@ -95,7 +95,7 @@ pnpm run db:studio
 Yoki to'g'ridan-to'g'ri:
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pnpm --filter @acoustic/backend exec prisma db execute --stdin <<< "SELECT COUNT(*) FROM \"Product\";"
 ```
 
@@ -105,7 +105,7 @@ Agar xatolik yuzaga kelsa:
 
 ```bash
 # Script loglarini ko'rish
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pnpm run import:products 2>&1 | tee import-log.txt
 
 # Xatoliklar faylini ko'rish
@@ -116,13 +116,13 @@ cat import-log.txt
 
 ```bash
 # 1. Local Mac'da - faylni serverga ko'chirish
-scp ~/Desktop/products-to-import.json user@your-server-ip:/root/acoustic.uz/
+scp ~/Desktop/products-to-import.json user@your-server-ip:/var/www/acoustic.uz/
 
 # 2. Serverga ulanish
 ssh user@your-server-ip
 
 # 3. Faylni tekshirish
-cd /root/acoustic.uz && ls -lh products-to-import.json
+cd /var/www/acoustic.uz && ls -lh products-to-import.json
 
 # 4. Scriptni ishga tushirish
 pnpm run import:products

@@ -6,7 +6,7 @@
 PGPASSWORD="${PGPASSWORD:-acoustic_web_db_password}"
 DB_USER="acoustic_user"
 DB_NAME="acousticwebdb"
-OUTPUT_FILE="/root/acoustic.uz/scripts/products-export.json"
+OUTPUT_FILE="/var/www/acoustic.uz/scripts/products-export.json"
 
 echo "📦 Mahsulotlarni export qilmoqda..."
 
@@ -68,7 +68,7 @@ try:
         products = json.loads(content)
         
         # Formatlangan JSON'ga yozish
-        output_path = '/root/acoustic.uz/scripts/products-export.json'
+        output_path = '/var/www/acoustic.uz/scripts/products-export.json'
         with open(output_path, 'w', encoding='utf-8') as out:
             json.dump(products, out, ensure_ascii=False, indent=2)
         

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Table,
   Button,
   Space,
   Tag,
@@ -12,8 +11,18 @@ import {
   Statistic,
   Row,
   Col,
+  Drawer,
+  Steps,
+  Avatar,
+  Divider,
 } from 'antd';
-import { DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
+import ListTable from '../components/common/ListTable';
+import { useTableLoading } from '../hooks/useTableLoading';
+import StatCard from '../components/common/StatCard';
+import { Inbox, CheckCircle, Clock } from 'lucide-react';
 import type { ColumnsType } from 'antd/es/table';
 import {
   useQuery,
@@ -30,6 +39,8 @@ import {
   TelegramButtonStats,
   ApiError,
 } from '../lib/api';
+import { exportLeadsToCsv } from '../lib/exportLeads';
+import dayjs from 'dayjs';
 
 const statusOptions = [
   { label: 'Yangi', value: 'new' },
@@ -65,6 +76,17 @@ const formatSource = (source: string | null | undefined): string => {
   return source;
 };
 
+// Helper to format UTM params as display string
+const formatUtmParamsStr = (utmParams: Record<string, string> | null | undefined): string => {
+  if (!utmParams || Object.keys(utmParams).length === 0) return '';
+  const parts: string[] = [];
+  if (utmParams.utm_source) parts.push(`source: ${utmParams.utm_source}`);
+  if (utmParams.utm_campaign) parts.push(`campaign: ${utmParams.utm_campaign}`);
+  if (utmParams.utm_content) parts.push(`content: ${utmParams.utm_content}`);
+  if (utmParams.utm_placement) parts.push(`placement: ${utmParams.utm_placement}`);
+  return parts.join(' · ');
+};
+
 // Helper function to get source color
 const getSourceColor = (source: string | null | undefined): string => {
   if (!source) return 'default';
@@ -83,12 +105,17 @@ export default function LeadsPage() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [sourceFilter, setSourceFilter] = useState<string | undefined>(undefined);
+  const [utmFilter, setUtmFilter] = useState<'all' | 'has_utm'>('all');
   const [searchText, setSearchText] = useState<string>('');
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [detailLead, setDetailLead] = useState<LeadDto | null>(null);
+  const [exporting, setExporting] = useState(false);
 
-  const { data: leads, isLoading, error } = useQuery<LeadDto[], ApiError>({
+  const { data: leads, isLoading, isFetching, isPending, error } = useQuery<LeadDto[], ApiError>({
     queryKey: ['leads'],
     queryFn: getLeads,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
   const { data: telegramStats, isLoading: isLoadingStats } = useQuery<TelegramButtonStats, ApiError>({
     queryKey: ['telegram-button-stats'],
@@ -126,14 +153,20 @@ export default function LeadsPage() {
   const filteredLeads = leads?.filter((lead) => {
     if (statusFilter && lead.status !== statusFilter) return false;
     if (sourceFilter && lead.source !== sourceFilter) return false;
+    if (utmFilter === 'has_utm') {
+      const hasUtm = lead.utmParams && Object.keys(lead.utmParams).length > 0;
+      if (!hasUtm) return false;
+    }
     if (searchText) {
       const searchLower = searchText.toLowerCase();
+      const utmStr = lead.utmParams ? JSON.stringify(lead.utmParams).toLowerCase() : '';
       return (
         lead.name.toLowerCase().includes(searchLower) ||
         lead.phone.includes(searchText) ||
         (lead.email && lead.email.toLowerCase().includes(searchLower)) ||
         (lead.source && lead.source.toLowerCase().includes(searchLower)) ||
-        (lead.message && lead.message.toLowerCase().includes(searchLower))
+        (lead.message && lead.message.toLowerCase().includes(searchLower)) ||
+        utmStr.includes(searchLower)
       );
     }
     return true;
@@ -150,7 +183,11 @@ export default function LeadsPage() {
       dataIndex: 'id',
       key: 'id',
       width: 80,
-      render: (id: string) => <span className="text-xs text-muted-foreground">{id.slice(0, 8)}...</span>,
+      render: (id: string, record: LeadDto) => (
+        <Button type="link" size="small" className="p-0 text-xs" onClick={() => setDetailLead(record)}>
+          {id.slice(0, 8)}…
+        </Button>
+      ),
     },
     {
       title: 'Ism',
@@ -191,6 +228,23 @@ export default function LeadsPage() {
       render: (source: string | null) => (
         <Tag color={getSourceColor(source)}>{formatSource(source)}</Tag>
       ),
+    },
+    {
+      title: 'Reklama (UTM)',
+      dataIndex: 'utmParams',
+      key: 'utmParams',
+      width: 220,
+      render: (utmParams: Record<string, string> | null) => {
+        const hasUtm = utmParams && Object.keys(utmParams).length > 0;
+        const str = formatUtmParamsStr(utmParams);
+        return hasUtm ? (
+          <Tag color="orange" title={JSON.stringify(utmParams, null, 2)}>
+            {str.length > 35 ? `${str.slice(0, 35)}...` : str}
+          </Tag>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        );
+      },
     },
     {
       title: 'Xabar',
@@ -286,20 +340,52 @@ export default function LeadsPage() {
     );
   }
 
+  const totalCount = leads?.length ?? 0;
+  const newCount = leads?.filter((l) => l.status === 'new').length ?? 0;
+  const completedCount = leads?.filter((l) => l.status === 'completed').length ?? 0;
+
   return (
     <div>
-      <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 600 }}>So'rovlar</h2>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ['leads'] });
-            queryClient.invalidateQueries({ queryKey: ['telegram-button-stats'] });
-          }}
-          loading={isLoading}
-        >
-          Yangilash
-        </Button>
+      <PageHeader
+        title="So'rovlar"
+        description="Mijozlardan kelgan barcha so'rovlar"
+        count={filteredLeads?.length ?? 0}
+        loading={tableLoading}
+        actions={
+          <Space>
+            <Button
+              icon={<DownloadOutlined />}
+              loading={exporting}
+              onClick={() => {
+                setExporting(true);
+                try {
+                  exportLeadsToCsv(filteredLeads ?? []);
+                  message.success('Excel fayl yuklab olindi');
+                } finally {
+                  setExporting(false);
+                }
+              }}
+            >
+              Excel yuklash
+            </Button>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['leads'] });
+                queryClient.invalidateQueries({ queryKey: ['telegram-button-stats'] });
+              }}
+              loading={isLoading}
+            >
+              Yangilash
+            </Button>
+          </Space>
+        }
+      />
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard icon={<Inbox size={20} />} title="Jami" value={totalCount} />
+        <StatCard icon={<Clock size={20} />} title="Yangi" value={newCount} />
+        <StatCard icon={<CheckCircle size={20} />} title="Javob berilgan" value={completedCount} />
       </div>
 
       {/* Telegram Button Statistics */}
@@ -341,21 +427,28 @@ export default function LeadsPage() {
         </Card>
       )}
 
-      {/* Filters */}
-      <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+      <FilterPanel
+        onClear={() => {
+          setSearchText('');
+          setStatusFilter(undefined);
+          setSourceFilter(undefined);
+          setUtmFilter('all');
+        }}
+      >
         <Input
           placeholder="Qidirish (ism, telefon, email, manba, xabar)"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: '300px' }}
+          className="min-w-[280px] flex-1"
+          size="large"
           allowClear
         />
         <Select
-          placeholder="Holat bo'yicha filtrlash"
+          placeholder="Holat"
           value={statusFilter}
           onChange={setStatusFilter}
           allowClear
-          style={{ width: '200px' }}
+          className="min-w-[160px]"
         >
           {statusOptions.map((option) => (
             <Select.Option key={option.value} value={option.value}>
@@ -364,11 +457,11 @@ export default function LeadsPage() {
           ))}
         </Select>
         <Select
-          placeholder="Manba bo'yicha filtrlash"
+          placeholder="Manba"
           value={sourceFilter}
           onChange={setSourceFilter}
           allowClear
-          style={{ width: '250px' }}
+          className="min-w-[200px]"
         >
           {uniqueSources.map((source) => (
             <Select.Option key={source} value={source}>
@@ -376,20 +469,115 @@ export default function LeadsPage() {
             </Select.Option>
           ))}
         </Select>
-      </div>
+        <Select value={utmFilter} onChange={setUtmFilter} className="min-w-[180px]">
+          <Select.Option value="all">Barcha leadlar</Select.Option>
+          <Select.Option value="has_utm">Reklama orqali</Select.Option>
+        </Select>
+      </FilterPanel>
 
-      <Table
+      {selectedRowKeys.length > 0 && (
+        <div className="sticky top-16 z-10 mb-4 flex items-center gap-3 rounded-xl border border-[var(--admin-border)] bg-white px-4 py-3 shadow-md dark:bg-[#1e293b]">
+          <span className="text-sm font-medium">{selectedRowKeys.length} ta tanlandi</span>
+          <Button
+            size="small"
+            onClick={() => {
+              Promise.all(
+                selectedRowKeys.map((id) =>
+                  updateLeadMutation({ id: String(id), payload: { status: 'in_progress' } }),
+                ),
+              ).then(() => {
+                setSelectedRowKeys([]);
+                message.success("Ko'rildi deb belgilandi");
+              });
+            }}
+          >
+            Ko&apos;rildi deb belgilash
+          </Button>
+          <Popconfirm
+            title={`${selectedRowKeys.length} ta so'rovni o'chirish?`}
+            onConfirm={() => {
+              Promise.all(selectedRowKeys.map((id) => deleteLeadMutation(String(id)))).then(() =>
+                setSelectedRowKeys([]),
+              );
+            }}
+          >
+            <Button size="small" danger>
+              O&apos;chirish
+            </Button>
+          </Popconfirm>
+        </div>
+      )}
+
+      <ListTable
         columns={columns}
         dataSource={filteredLeads}
-        rowKey="id"
-        loading={isLoading}
+        loading={tableLoading}
         scroll={{ x: 1400 }}
-        pagination={{
-          pageSize: 20,
-          showSizeChanger: true,
-          showTotal: (total) => `Jami: ${total} ta lead`,
+        rowSelection={{
+          selectedRowKeys,
+          onChange: setSelectedRowKeys,
         }}
       />
+
+      <Drawer
+        title="So'rov tafsilotlari"
+        width={480}
+        open={Boolean(detailLead)}
+        onClose={() => setDetailLead(null)}
+      >
+        {detailLead && (
+          <div className="flex flex-col gap-4">
+            <Card size="small" title="Mijoz ma'lumotlari">
+              <div className="flex items-center gap-3">
+                <Avatar>{detailLead.name?.[0]?.toUpperCase()}</Avatar>
+                <div>
+                  <p className="font-semibold">{detailLead.name}</p>
+                  <a href={`tel:${detailLead.phone}`} className="text-[#2563EB]">
+                    📞 {detailLead.phone}
+                  </a>
+                  {detailLead.email && (
+                    <p>
+                      <a href={`mailto:${detailLead.email}`}>✉️ {detailLead.email}</a>
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    📅 {dayjs(detailLead.createdAt).format('DD.MM.YYYY HH:mm')}
+                  </p>
+                  <Tag color={getSourceColor(detailLead.source)}>{formatSource(detailLead.source)}</Tag>
+                </div>
+              </div>
+            </Card>
+            <Card size="small" title="Holat boshqaruvi">
+              <Steps
+                direction="vertical"
+                size="small"
+                current={Math.max(
+                  0,
+                  ['new', 'in_progress', 'completed', 'cancelled'].indexOf(detailLead.status ?? 'new'),
+                )}
+                items={[
+                  { title: 'Yangi' },
+                  { title: "Ko'rildi" },
+                  { title: 'Javob berildi' },
+                  { title: 'Rad etildi' },
+                ]}
+              />
+              <Divider />
+              <Select
+                className="mb-3 w-full"
+                value={detailLead.status ?? 'new'}
+                onChange={(v) => {
+                  updateLeadMutation({ id: detailLead.id, payload: { status: v } }).then((updated) =>
+                    setDetailLead(updated),
+                  );
+                }}
+                options={statusOptions}
+              />
+              {detailLead.message && <p className="text-sm text-gray-600">{detailLead.message}</p>}
+            </Card>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

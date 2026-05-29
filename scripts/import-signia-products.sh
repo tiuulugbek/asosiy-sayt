@@ -35,7 +35,7 @@ echo ""
 echo "🚀 Import boshlandi..."
 echo ""
 
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 pnpm exec ts-node "$SCRIPT_PATH" "$JSON_FILE" --brand-name "Signia"
 
 echo ""

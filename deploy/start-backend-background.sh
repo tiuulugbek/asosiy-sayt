@@ -1,7 +1,7 @@
 #!/bin/bash
 # Acoustic.uz Backend - Background Start Script
 
-PROJECT_DIR="/root/acoustic.uz"
+PROJECT_DIR="/var/www/acoustic.uz"
 BACKEND_DIR="$PROJECT_DIR/apps/backend"
 LOG_FILE="/tmp/acoustic-backend.log"
 PID_FILE="/tmp/acoustic-backend.pid"
@@ -16,7 +16,7 @@ fi
 # Qo'shimcha environment variables
 export NODE_ENV=production
 export PORT=3001
-export UPLOADS_DIR="/root/acoustic.uz/apps/backend/uploads"
+export UPLOADS_DIR="/var/www/acoustic.uz/apps/backend/uploads"
 
 echo "Backend ishga tushirilmoqda..."
 echo "DATABASE_URL: ${DATABASE_URL:0:50}..."

@@ -10,7 +10,7 @@
 
 ### Fondada ishga tushirish:
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 ./deploy/start-backend-background.sh
 ```
 

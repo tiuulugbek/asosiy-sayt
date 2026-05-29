@@ -14,7 +14,6 @@ import { SettingsModule } from './settings/settings.module';
 import { BannersModule } from './banners/banners.module';
 import { ServicesModule } from './services/services.module';
 import { BrandsModule } from './brands/brands.module';
-import { ProductCategoriesModule } from './product-categories/product-categories.module';
 import { ServiceCategoriesModule } from './service-categories/service-categories.module';
 import { CatalogsModule } from './catalogs/catalogs.module';
 import { ProductsModule } from './products/products.module';
@@ -25,6 +24,7 @@ import { FaqModule } from './faq/faq.module';
 import { BranchesModule } from './branches/branches.module';
 import { PagesModule } from './pages/pages.module';
 import { LeadsModule } from './leads/leads.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { SearchModule } from './search/search.module';
 import { MenusModule } from './menus/menus.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
@@ -32,6 +32,9 @@ import { HomepageModule } from './homepage/homepage.module';
 import { DoctorsModule } from './doctors/doctors.module';
 import { HearingTestModule } from './hearing-test/hearing-test.module';
 import { LocaleCacheInterceptor } from './common/interceptors/locale-cache.interceptor';
+import { QrModule } from './qr/qr.module';
+import { TrafficModule } from './traffic/traffic.module';
+import { IntegrationModule } from './integration/integration.module';
 
 @Module({
   imports: [
@@ -86,7 +89,6 @@ import { LocaleCacheInterceptor } from './common/interceptors/locale-cache.inter
     BannersModule,
     ServicesModule,
     BrandsModule,
-    ProductCategoriesModule,
     ServiceCategoriesModule,
     CatalogsModule,
     ProductsModule,
@@ -97,12 +99,16 @@ import { LocaleCacheInterceptor } from './common/interceptors/locale-cache.inter
     BranchesModule,
     PagesModule,
     LeadsModule,
+    ReviewsModule,
     SearchModule,
     MenusModule,
     AuditLogModule,
     HomepageModule,
     DoctorsModule,
     HearingTestModule,
+    QrModule,
+    TrafficModule,
+    IntegrationModule,
   ],
   providers: [
     {

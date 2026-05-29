@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
@@ -58,6 +59,7 @@ console.log(`[Vite Config] Version written to: ${versionFilePublic}`);
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
     // Custom plugin to inject version and API URL
     {
       name: 'inject-version',

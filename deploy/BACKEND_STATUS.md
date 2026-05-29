@@ -3,13 +3,13 @@
 ## ✅ Hal qilingan
 
 1. **Port 3001 muammosi hal qilindi** - Eski processlar o'chirildi
-2. **Uploads path to'g'ri sozlandi** - `/root/acoustic.uz/apps/backend/uploads`
+2. **Uploads path to'g'ri sozlandi** - `/var/www/acoustic.uz/apps/backend/uploads`
 3. **Backend ishga tushdi** - PID: 4117262 (yoki yangi PID)
 
 ## 📋 Backend ma'lumotlari
 
-- **Path**: `/root/acoustic.uz/apps/backend/dist/main.js`
-- **Uploads**: `/root/acoustic.uz/apps/backend/uploads`
+- **Path**: `/var/www/acoustic.uz/apps/backend/dist/main.js`
+- **Uploads**: `/var/www/acoustic.uz/apps/backend/uploads`
 - **Loglar**: `/tmp/pm2-logs/backend-out.log` va `/tmp/pm2-logs/backend-err.log`
 - **Port**: 3001
 
@@ -43,7 +43,7 @@ ps aux | grep "node.*dist/main.js" | grep -v grep
 pkill -9 -f "node.*dist/main.js"
 
 # Qayta ishga tushirish
-cd /root/acoustic.uz/apps/backend
+cd /var/www/acoustic.uz/apps/backend
 NODE_ENV=production PORT=3001 nohup node dist/main.js > /tmp/pm2-logs/backend-out.log 2> /tmp/pm2-logs/backend-err.log &
 ```
 

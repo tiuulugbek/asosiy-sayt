@@ -4,12 +4,19 @@ import { useState, useEffect } from 'react';
 import { Phone, MapPin, CheckCircle, User } from 'lucide-react';
 import { getBranches, createLead } from '@/lib/api';
 import { getBilingualText } from '@/lib/locale';
+import { getStoredUtmParams } from '@/lib/utm';
 import type { BranchResponse } from '@/lib/api';
 
 interface AppointmentFormProps {
   locale: 'uz' | 'ru';
   doctorId?: string | null;
   source?: string; // Source identifier (e.g., 'post-{slug}', 'service-{slug}', 'product-{slug}')
+  /** plain: no outer card (e.g. inside doctor CTA panel) */
+  variant?: 'card' | 'plain';
+  /** simple: branch name only; marketing: "Acoustic - …" style */
+  branchLabelMode?: 'marketing' | 'simple';
+  /** wide: one responsive row (4 cols on xl) for full-width CTA panels */
+  fieldsLayout?: 'stacked' | 'wide';
 }
 
 // Phone number mask function for Uzbekistan (+998)
@@ -35,7 +42,14 @@ const getPhoneDigits = (formatted: string): string => {
   return formatted.replace(/\D/g, '');
 };
 
-export default function AppointmentForm({ locale, doctorId, source }: AppointmentFormProps) {
+export default function AppointmentForm({
+  locale,
+  doctorId,
+  source,
+  variant = 'card',
+  branchLabelMode = 'marketing',
+  fieldsLayout = 'stacked',
+}: AppointmentFormProps) {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('+998 ');
   const [selectedBranch, setSelectedBranch] = useState<string>('');
@@ -117,6 +131,7 @@ export default function AppointmentForm({ locale, doctorId, source }: Appointmen
         phone: phoneDigits,
         source: sourceString,
         message: branchName ? `${locale === 'ru' ? 'Филиал' : 'Filial'}: ${branchName}` : undefined,
+        utmParams: getStoredUtmParams(),
       }, locale);
 
       setIsSubmitted(true);
@@ -136,123 +151,176 @@ export default function AppointmentForm({ locale, doctorId, source }: Appointmen
   };
 
   if (isSubmitted) {
-    return (
-      <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
-        <CheckCircle className="mx-auto mb-3 h-12 w-12 text-green-600" />
-        <h3 className="mb-2 text-lg font-semibold text-green-900">
+    const success = (
+      <>
+        <CheckCircle
+          className={`mx-auto text-green-600 ${variant === 'plain' ? 'mb-2 h-10 w-10' : 'mb-3 h-12 w-12'}`}
+        />
+        <h3
+          className={`font-semibold text-green-900 ${variant === 'plain' ? 'mb-1 text-base' : 'mb-2 text-lg'}`}
+        >
           {locale === 'ru' ? 'Заявка отправлена!' : 'Ariza yuborildi!'}
         </h3>
-        <p className="text-sm text-green-700">
-          {locale === 'ru' 
+        <p className={`text-green-700 ${variant === 'plain' ? 'text-xs' : 'text-sm'}`}>
+          {locale === 'ru'
             ? 'Наш специалист свяжется с вами в ближайшее время.'
-            : 'Bizning mutaxassisimiz tez orada siz bilan bog\'lanadi.'}
+            : "Bizning mutaxassisimiz tez orada siz bilan bog'lanadi."}
         </p>
+      </>
+    );
+    return (
+      <div
+        className={
+          variant === 'plain'
+            ? 'rounded-lg border border-green-200 bg-green-50/90 p-4 text-center'
+            : 'rounded-lg border border-green-200 bg-green-50 p-6 text-center'
+        }
+      >
+        {success}
       </div>
     );
   }
 
-  return (
-    <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        {/* First Row: Ism va Familya */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">
-              {locale === 'ru' ? 'Имя' : 'Ism'}
-            </label>
-            <div className="relative">
-              <User className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={fullName.split(' ')[0] || ''}
-                onChange={(e) => {
-                  const parts = fullName.split(' ');
-                  parts[0] = e.target.value;
-                  setFullName(parts.join(' ').trim());
-                }}
-                placeholder={locale === 'ru' ? 'Имя' : 'Ism'}
-                className="w-full rounded-md border border-border pl-9 pr-3 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary/20"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">
-              {locale === 'ru' ? 'Фамилия' : 'Familya'}
-            </label>
-            <div className="relative">
-              <User className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={fullName.split(' ').slice(1).join(' ') || ''}
-                onChange={(e) => {
-                  const parts = fullName.split(' ');
-                  const firstName = parts[0] || '';
-                  setFullName([firstName, e.target.value].filter(Boolean).join(' '));
-                }}
-                placeholder={locale === 'ru' ? 'Фамилия' : 'Familya'}
-                className="w-full rounded-md border border-border pl-9 pr-3 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary/20"
-              />
-            </div>
-          </div>
-        </div>
+  const fieldClass =
+    fieldsLayout === 'wide'
+      ? 'w-full rounded-md border border-border pl-9 pr-3 py-2.5 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary/20'
+      : 'w-full rounded-md border border-border pl-9 pr-3 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary/20';
 
-        {/* Second Row: Telefon va Filialni tanlang */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">
-              {locale === 'ru' ? 'Телефон' : 'Telefon'} *
-            </label>
-            <div className="relative">
-              <Phone className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="tel"
-                value={phone}
-                onChange={handlePhoneChange}
-                onKeyDown={handlePhoneKeyDown}
-                placeholder="+998 90 123 45 67"
-                className="w-full rounded-md border border-border pl-9 pr-3 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary/20"
-                required
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">
-              {locale === 'ru' ? 'Выберите адрес' : 'Filialni tanlang'} *
-            </label>
-            {loadingBranches ? (
-              <div className="flex items-center justify-center rounded-md border border-border bg-muted px-3 py-2">
-                <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-brand-primary"></div>
-              </div>
-            ) : (
-              <div className="relative">
-                <MapPin className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                <select
-                  value={selectedBranch}
-                  onChange={(e) => setSelectedBranch(e.target.value)}
-                  className="w-full appearance-none rounded-md border border-border pl-9 pr-8 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary/20"
-                  required
-                >
-                <option value="">{locale === 'ru' ? 'Выберите адрес' : 'Filialni tanlang'}</option>
-                {branches.map((branch) => {
-                  const branchName = getBilingualText(branch.name_uz, branch.name_ru, locale);
-                  // Remove "Acoustic" prefix if it exists, then add it back
-                  const cleanName = branchName.replace(/^Acoustic\s*-\s*/i, '').trim();
-                  return (
-                    <option key={branch.id} value={branch.id}>
-                      Acoustic - {cleanName} filiali
-                    </option>
-                  );
-                })}
-                </select>
-                <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
-                  <svg className="h-3.5 w-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
-            )}
+  const firstNameField = (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-foreground">
+        {locale === 'ru' ? 'Имя' : 'Ism'}
+      </label>
+      <div className="relative">
+        <User className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          value={fullName.split(' ')[0] || ''}
+          onChange={(e) => {
+            const parts = fullName.split(' ');
+            parts[0] = e.target.value;
+            setFullName(parts.join(' ').trim());
+          }}
+          placeholder={locale === 'ru' ? 'Имя' : 'Ism'}
+          className={fieldClass}
+        />
+      </div>
+    </div>
+  );
+
+  const lastNameField = (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-foreground">
+        {locale === 'ru' ? 'Фамилия' : 'Familya'}
+      </label>
+      <div className="relative">
+        <User className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          value={fullName.split(' ').slice(1).join(' ') || ''}
+          onChange={(e) => {
+            const parts = fullName.split(' ');
+            const firstName = parts[0] || '';
+            setFullName([firstName, e.target.value].filter(Boolean).join(' '));
+          }}
+          placeholder={locale === 'ru' ? 'Фамилия' : 'Familya'}
+          className={fieldClass}
+        />
+      </div>
+    </div>
+  );
+
+  const phoneField = (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-foreground">
+        {locale === 'ru' ? 'Телефон' : 'Telefon'} *
+      </label>
+      <div className="relative">
+        <Phone className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="tel"
+          value={phone}
+          onChange={handlePhoneChange}
+          onKeyDown={handlePhoneKeyDown}
+          placeholder="+998 90 123 45 67"
+          className={fieldClass}
+          required
+        />
+      </div>
+    </div>
+  );
+
+  const branchField = (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-foreground">
+        {locale === 'ru' ? 'Выберите адрес' : 'Filialni tanlang'} *
+      </label>
+      {loadingBranches ? (
+        <div
+          className={`flex items-center justify-center rounded-md border border-border bg-muted px-3 ${fieldsLayout === 'wide' ? 'py-2.5' : 'py-2'}`}
+        >
+          <div className="h-3.5 w-3.5 animate-spin rounded-full border-b-2 border-brand-primary"></div>
+        </div>
+      ) : (
+        <div className="relative">
+          <MapPin className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+            className={`w-full appearance-none rounded-md border border-border pl-9 pr-8 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary/20 ${fieldsLayout === 'wide' ? 'py-2.5 text-sm' : 'py-2 text-sm'}`}
+            required
+          >
+            <option value="">{locale === 'ru' ? 'Выберите адрес' : 'Filialni tanlang'}</option>
+            {branches.map((branch) => {
+              const branchName = getBilingualText(branch.name_uz, branch.name_ru, locale);
+              const cleanName = branchName.replace(/^Acoustic\s*-\s*/i, '').trim();
+              const label =
+                branchLabelMode === 'simple'
+                  ? branchName
+                  : locale === 'ru'
+                    ? `Acoustic — ${cleanName}`
+                    : `Acoustic - ${cleanName} filiali`;
+              return (
+                <option key={branch.id} value={branch.id}>
+                  {label}
+                </option>
+              );
+            })}
+          </select>
+          <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
+            <svg className="h-3.5 w-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
         </div>
+      )}
+    </div>
+  );
+
+  const fieldsBlock =
+    fieldsLayout === 'wide' ? (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {firstNameField}
+        {lastNameField}
+        {phoneField}
+        {branchField}
+      </div>
+    ) : (
+      <>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {firstNameField}
+          {lastNameField}
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {phoneField}
+          {branchField}
+        </div>
+      </>
+    );
+
+  const form = (
+    <form onSubmit={handleSubmit} className="space-y-3">
+        {fieldsBlock}
 
         {/* Consent Checkbox */}
         <div className="flex items-start gap-2">
@@ -264,25 +332,49 @@ export default function AppointmentForm({ locale, doctorId, source }: Appointmen
             className="mt-0.5 h-3.5 w-3.5 rounded border-border text-brand-primary focus:ring-brand-primary"
             required
           />
-          <label htmlFor="consent" className="text-xs leading-relaxed text-muted-foreground">
-            {locale === 'ru' 
-              ? (
-                <>
-                  Я даю согласие на обработку{' '}
-                  <a href="/privacy" className="text-brand-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                    персональных данных
-                  </a>
-                </>
-              )
-              : (
-                <>
-                  Men{' '}
-                  <a href="/privacy" className="text-brand-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                    shaxsiy ma&apos;lumotlarni qayta ishlashga
-                  </a>{' '}
-                  rozilik beraman
-                </>
-              )}
+          <label
+            htmlFor="consent"
+            className={`leading-relaxed text-muted-foreground ${variant === 'plain' ? 'text-[11px]' : 'text-xs'}`}
+          >
+            {locale === 'ru' ? (
+              <>
+                Я даю согласие на обработку{' '}
+                <a
+                  href="/privacy"
+                  className="text-brand-primary hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  персональных данных
+                </a>
+              </>
+            ) : variant === 'plain' ? (
+              <>
+                Men{' '}
+                <a
+                  href="/privacy"
+                  className="text-brand-primary underline decoration-brand-primary/30 underline-offset-2 hover:decoration-brand-primary"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  shaxsiy ma&apos;lumotlarni qayta ishlashga
+                </a>{' '}
+                rozilik beraman
+              </>
+            ) : (
+              <>
+                Men{' '}
+                <a
+                  href="/privacy"
+                  className="text-brand-primary hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  shaxsiy ma&apos;lumotlarni qayta ishlashga
+                </a>{' '}
+                rozilik beraman
+              </>
+            )}
           </label>
         </div>
 
@@ -290,15 +382,23 @@ export default function AppointmentForm({ locale, doctorId, source }: Appointmen
         <button
           type="submit"
           disabled={isSubmitting || !fullName.trim().split(' ').filter(Boolean).length || getPhoneDigits(phone).length < 12 || !selectedBranch || !consent}
-          className="w-full rounded-md bg-gradient-to-r from-brand-primary to-brand-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-sm"
+          className="w-full rounded-lg bg-gradient-to-r from-brand-primary via-brand-primary to-brand-accent/90 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-[0.97] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-sm"
         >
-          {isSubmitting 
-            ? (locale === 'ru' ? 'Отправка...' : 'Yuborilmoqda...')
-            : (locale === 'ru' ? 'Отправить' : 'Yuborish')
-          }
+          {isSubmitting
+            ? locale === 'ru'
+              ? 'Отправка...'
+              : 'Yuborilmoqda...'
+            : locale === 'ru'
+              ? 'Отправить'
+              : 'Yuborish'}
         </button>
       </form>
-    </div>
   );
+
+  if (variant === 'plain') {
+    return form;
+  }
+
+  return <div className="rounded-lg border border-border bg-white p-4 shadow-sm">{form}</div>;
 }
 

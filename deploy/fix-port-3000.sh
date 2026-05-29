@@ -31,7 +31,7 @@ fi
 
 # 4. Test qilish
 echo "4. Test qilish..."
-cd /root/acoustic.uz/apps/frontend
+cd /var/www/acoustic.uz/apps/frontend
 export NODE_ENV=production
 export PORT=3000
 export NEXT_PUBLIC_API_URL=https://a.acoustic.uz/api

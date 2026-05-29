@@ -11,7 +11,7 @@ import Sidebar from '@/components/sidebar';
 import MobileFilterDrawer from '@/components/mobile-filter-drawer';
 import CatalogFilters from '@/components/catalog-filters';
 import { normalizeImageUrl } from '@/lib/image-utils';
-import { generateAudienceOptions, generateFormFactorOptions, generateHearingLossOptions, generatePowerLevelOptions } from '@/lib/filter-utils';
+import { generateFormFactorOptions, generateHearingLossOptions, generatePowerLevelOptions } from '@/lib/filter-utils';
 
 // ISR: Revalidate every 30 minutes
 export const revalidate = 1800;
@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const description = locale === 'ru'
     ? 'Каталог слуховых аппаратов и решений от Acoustic. Выберите подходящий аппарат под ваш образ жизни, уровень активности и бюджет.'
     : "Acoustic eshitish markazining katalogi — eshitish apparatlari, implantlar va aksessuarlar haqida ma'lumot.";
-  const imageUrl = `${baseUrl}/logo.png`;
+  const imageUrl = `${baseUrl}/og-image.jpg`;
 
   return {
     title: `${title} — Acoustic.uz`,
@@ -122,11 +122,13 @@ export default async function CatalogPage({
     brand?: string; // Brand slug for URL
     sort?: string;
     audience?: string;
+    catalogId?: string;
     formFactor?: string;
     signalProcessing?: string;
     powerLevel?: string;
     hearingLossLevel?: string;
     smartphoneCompatibility?: string;
+    discount?: string; // '1' = faqat chegirmali
     page?: string;
   };
 }) {
@@ -139,7 +141,7 @@ export default async function CatalogPage({
   
   // If productType is provided, show products instead of catalogs
   if (searchParams.productType) {
-    const { getProducts, getProductCategories } = await import('@/lib/api-server');
+    const { getProducts } = await import('@/lib/api-server');
     const page = parseInt(searchParams.page || '1', 10);
     // For interacoustics, show 6 products per page (3x2), otherwise 12 (3x4)
     const pageSize = searchParams.productType === 'interacoustics' ? 6 : 12;
@@ -159,25 +161,26 @@ export default async function CatalogPage({
       }
     }
     
-    const [productsResponse, categoriesData, postsData, settingsData] = await Promise.all([
+    const [productsResponse, postsData, settingsData, catalogsData] = await Promise.all([
       getProducts({
       status: 'published',
       productType: searchParams.productType,
         brandId: resolvedBrandId,
+        catalogId: searchParams.catalogId,
         audience: searchParams.audience,
         formFactor: searchParams.formFactor,
         signalProcessing: searchParams.signalProcessing,
         powerLevel: searchParams.powerLevel,
         hearingLossLevel: searchParams.hearingLossLevel,
         smartphoneCompatibility: searchParams.smartphoneCompatibility,
+        discount: searchParams.discount === '1',
         limit: pageSize,
         offset: offset,
         sort: searchParams.sort === 'price_asc' ? 'price_asc' : searchParams.sort === 'price_desc' ? 'price_desc' : 'newest',
       }, locale) || { items: [], total: 0, page: 1, pageSize: 12 },
-      getProductCategories(locale),
       getPosts(locale, true, undefined, 'article'),
-      getBrands(locale),
       getSettings(locale),
+      getCatalogs(locale),
     ]);
     
     const totalPages = Math.ceil((productsResponse.total || 0) / pageSize);
@@ -204,11 +207,27 @@ export default async function CatalogPage({
       availableLoss,
     } = calculateFacetCounts(filteredProducts);
     
+    const discountCount = searchParams.discount === '1' ? (productsResponse.total ?? 0) : filteredProducts.filter((p: { discountPercent?: number | null }) => (p.discountPercent ?? 0) > 0).length;
+
     // Generate dynamic filter options from available product data
-    const audienceOptions = generateAudienceOptions(availableAudience, locale);
     const formFactorOptions = generateFormFactorOptions(availableForms, locale);
     const powerLevelOptions = generatePowerLevelOptions(availablePower, locale);
     const hearingLossOptions = generateHearingLossOptions(availableLoss, locale);
+    const catalogCounts: Record<string, number> = {};
+    filteredProducts.forEach((product: any) => {
+      product.catalogs?.forEach((catalog: any) => {
+        if (catalog?.id) {
+          catalogCounts[catalog.id] = (catalogCounts[catalog.id] || 0) + 1;
+        }
+      });
+    });
+    const catalogFilterOptions = (catalogsData || [])
+      .map((catalog: any) => ({
+        id: catalog.id,
+        label: locale === 'ru' ? (catalog.name_ru || catalog.name_uz || '') : (catalog.name_uz || catalog.name_ru || ''),
+        count: catalogCounts[catalog.id] || 0,
+      }))
+      .filter((catalog: any) => catalog.count > 0);
     // Filter by "wireless" if filter=wireless (legacy support)
     if (searchParams.filter === 'wireless') {
       filteredProducts = filteredProducts.filter((p) => 
@@ -329,15 +348,18 @@ export default async function CatalogPage({
                             return brand?.slug || id;
                           });
                         })() : []}
+                        selectedCatalogId={searchParams.catalogId}
+                        catalogOptions={catalogFilterOptions}
                         selectedAudience={searchParams.audience ? searchParams.audience.split(',').filter(Boolean) : []}
                         selectedForms={searchParams.formFactor ? searchParams.formFactor.split(',').filter(Boolean) : []}
                         selectedPower={searchParams.powerLevel ? searchParams.powerLevel.split(',').filter(Boolean) : []}
                         selectedLoss={searchParams.hearingLossLevel ? searchParams.hearingLossLevel.split(',').filter(Boolean) : []}
+                        selectedDiscount={searchParams.discount === '1'}
+                        discountCount={discountCount}
                         audienceCounts={audienceCounts}
                         formCounts={formCounts}
                         powerCounts={powerCounts}
                         lossCounts={lossCounts}
-                        audienceOptions={audienceOptions}
                         formFactorOptions={formFactorOptions}
                         powerLevelOptions={powerLevelOptions}
                         hearingLossOptions={hearingLossOptions}
@@ -366,9 +388,9 @@ export default async function CatalogPage({
                                 <Image
                                   src={coverImage}
                                   alt={title}
-                                  fill
-                                  sizes="64px"
-                                  className="object-cover"
+                                  width={64}
+                                  height={64}
+                                  className="h-full w-full object-cover"
                                   suppressHydrationWarning
                                 />
                               </div>
@@ -415,7 +437,7 @@ export default async function CatalogPage({
                 {brandTabs.length > 0 && searchParams.productType !== 'interacoustics' && (
                   <div className="flex flex-wrap gap-2">
                     <Link
-                      href={`/catalog?productType=${searchParams.productType}`}
+                      href={`/catalog?productType=${searchParams.productType}${searchParams.discount ? `&discount=${searchParams.discount}` : ''}`}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
                         !searchParams.brand && !searchParams.brandId
                           ? 'bg-brand-primary text-white'
@@ -432,11 +454,13 @@ export default async function CatalogPage({
                       if (searchParams.sort) params.set('sort', searchParams.sort);
                       // Preserve filters
                       if (searchParams.audience) params.set('audience', searchParams.audience);
+                      if (searchParams.catalogId) params.set('catalogId', searchParams.catalogId);
                       if (searchParams.formFactor) params.set('formFactor', searchParams.formFactor);
                       if (searchParams.signalProcessing) params.set('signalProcessing', searchParams.signalProcessing);
                       if (searchParams.powerLevel) params.set('powerLevel', searchParams.powerLevel);
                       if (searchParams.hearingLossLevel) params.set('hearingLossLevel', searchParams.hearingLossLevel);
                       if (searchParams.smartphoneCompatibility) params.set('smartphoneCompatibility', searchParams.smartphoneCompatibility);
+                      if (searchParams.discount) params.set('discount', searchParams.discount);
                       
                       // Check if this brand is selected (by slug or id for backward compatibility)
                       const isSelected = searchParams.brand === (brand.slug || brand.id) || searchParams.brandId === brand.id;
@@ -462,7 +486,7 @@ export default async function CatalogPage({
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>{locale === 'ru' ? 'Сортировать по:' : 'Saralash:'}</span>
                   <Link
-                    href={`/catalog?productType=${searchParams.productType}&sort=price_asc${searchParams.brand ? `&brand=${searchParams.brand}` : searchParams.brandId ? `&brandId=${searchParams.brandId}` : ''}`}
+                    href={`/catalog?productType=${searchParams.productType}&sort=price_asc${searchParams.brand ? `&brand=${searchParams.brand}` : searchParams.brandId ? `&brandId=${searchParams.brandId}` : ''}${searchParams.catalogId ? `&catalogId=${searchParams.catalogId}` : ''}${searchParams.discount ? `&discount=${searchParams.discount}` : ''}`}
                     className={`hover:text-brand-primary ${searchParams.sort === 'price_asc' ? 'text-brand-primary font-medium' : ''}`}
                   >
                     {locale === 'ru' ? 'цене' : 'narx'}
@@ -485,13 +509,23 @@ export default async function CatalogPage({
                         }
                         
                         // Debug: Log price for troubleshooting
-                        console.log('[Catalog] Product price:', product.price, 'Type:', typeof product.price);
-                        
-                        const priceFormatted = product.price && product.price !== null && product.price !== undefined && product.price !== ''
-                          ? `${new Intl.NumberFormat('uz-UZ').format(Number(product.price))} so'm`
+                        const hasDiscount = (product.discountPercent ?? 0) > 0;
+                        const currentPrice = product.price && product.price !== null && product.price !== undefined && product.price !== ''
+                          ? Number(product.price)
+                          : null;
+                        const priceFormatted = currentPrice != null
+                          ? `${new Intl.NumberFormat('uz-UZ').format(currentPrice)} so'm`
+                          : null;
+                        // Chegirma bo'lganda eski narx (originalPrice yoki hisoblangan)
+                        const originalPriceValue = product.originalPrice != null && product.originalPrice !== ''
+                          ? Number(product.originalPrice)
+                          : hasDiscount && currentPrice != null
+                            ? Math.round(currentPrice / (1 - (product.discountPercent ?? 0) / 100))
+                            : null;
+                        const originalPriceFormatted = originalPriceValue != null
+                          ? `${new Intl.NumberFormat('uz-UZ').format(originalPriceValue)} so'm`
                           : null;
                         
-                        console.log('[Catalog] Formatted price:', priceFormatted);
                         const availability = product.availabilityStatus 
                           ? availabilityMap[product.availabilityStatus] 
                           : null;
@@ -504,6 +538,11 @@ export default async function CatalogPage({
                           >
                             {/* Product Image - Top, Large */}
                             <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-brand-accent/60 bg-white">
+                              {(product.discountPercent ?? 0) > 0 && (
+                                <span className="absolute top-2 left-2 z-10 rounded bg-rose-500 px-2 py-0.5 text-xs font-semibold text-white shadow">
+                                  {locale === 'ru' ? 'Скидка' : 'Chegirma'} −{product.discountPercent}%
+                                </span>
+                              )}
                               {mainImage ? (
                                 <Image
                                   src={mainImage}
@@ -532,8 +571,15 @@ export default async function CatalogPage({
                                 </p>
                               )}
                               {priceFormatted && (
-                                <span className="inline-flex items-center text-xs sm:text-sm font-medium text-brand-primary mt-auto" suppressHydrationWarning>
-                                  <span className="font-bold">{locale === 'ru' ? 'Цена' : 'Narxi'}: </span>{priceFormatted}
+                                <span className="inline-flex flex-col gap-0.5 text-xs sm:text-sm font-medium mt-auto" suppressHydrationWarning>
+                                  {hasDiscount && originalPriceFormatted && (
+                                    <span className="text-muted-foreground line-through" suppressHydrationWarning>
+                                      {originalPriceFormatted}
+                                    </span>
+                                  )}
+                                  <span className="text-brand-primary" suppressHydrationWarning>
+                                    <span className="font-bold">{locale === 'ru' ? 'Цена' : 'Narxi'}: </span>{priceFormatted}
+                                  </span>
                                 </span>
                               )}
                             </div>
@@ -547,7 +593,7 @@ export default async function CatalogPage({
                       <div className="flex items-center justify-center gap-2 pt-6">
                         {page > 1 && (
                           <Link
-                            href={`/catalog?productType=${searchParams.productType}&page=${page - 1}${searchParams.brand ? `&brand=${searchParams.brand}` : searchParams.brandId ? `&brandId=${searchParams.brandId}` : ''}${searchParams.sort ? `&sort=${searchParams.sort}` : ''}${searchParams.audience ? `&audience=${searchParams.audience}` : ''}${searchParams.formFactor ? `&formFactor=${searchParams.formFactor}` : ''}${searchParams.signalProcessing ? `&signalProcessing=${searchParams.signalProcessing}` : ''}${searchParams.powerLevel ? `&powerLevel=${searchParams.powerLevel}` : ''}${searchParams.hearingLossLevel ? `&hearingLossLevel=${searchParams.hearingLossLevel}` : ''}${searchParams.smartphoneCompatibility ? `&smartphoneCompatibility=${searchParams.smartphoneCompatibility}` : ''}`}
+                            href={`/catalog?productType=${searchParams.productType}&page=${page - 1}${searchParams.brand ? `&brand=${searchParams.brand}` : searchParams.brandId ? `&brandId=${searchParams.brandId}` : ''}${searchParams.sort ? `&sort=${searchParams.sort}` : ''}${searchParams.catalogId ? `&catalogId=${searchParams.catalogId}` : ''}${searchParams.audience ? `&audience=${searchParams.audience}` : ''}${searchParams.formFactor ? `&formFactor=${searchParams.formFactor}` : ''}${searchParams.signalProcessing ? `&signalProcessing=${searchParams.signalProcessing}` : ''}${searchParams.powerLevel ? `&powerLevel=${searchParams.powerLevel}` : ''}${searchParams.hearingLossLevel ? `&hearingLossLevel=${searchParams.hearingLossLevel}` : ''}${searchParams.smartphoneCompatibility ? `&smartphoneCompatibility=${searchParams.smartphoneCompatibility}` : ''}${searchParams.discount ? `&discount=${searchParams.discount}` : ''}`}
                             className="px-4 py-2 rounded-lg border border-border/60 bg-white text-sm font-medium text-foreground transition hover:border-brand-primary/50 hover:bg-muted/20"
                           >
                             {locale === 'ru' ? 'Назад' : 'Orqaga'}
@@ -572,12 +618,14 @@ export default async function CatalogPage({
                             if (searchParams.brand) pageParams.set('brand', searchParams.brand);
                             else if (searchParams.brandId) pageParams.set('brandId', searchParams.brandId);
                             if (searchParams.sort) pageParams.set('sort', searchParams.sort);
+                            if (searchParams.catalogId) pageParams.set('catalogId', searchParams.catalogId);
                             if (searchParams.audience) pageParams.set('audience', searchParams.audience);
                             if (searchParams.formFactor) pageParams.set('formFactor', searchParams.formFactor);
                             if (searchParams.signalProcessing) pageParams.set('signalProcessing', searchParams.signalProcessing);
                             if (searchParams.powerLevel) pageParams.set('powerLevel', searchParams.powerLevel);
                             if (searchParams.hearingLossLevel) pageParams.set('hearingLossLevel', searchParams.hearingLossLevel);
                             if (searchParams.smartphoneCompatibility) pageParams.set('smartphoneCompatibility', searchParams.smartphoneCompatibility);
+                            if (searchParams.discount) pageParams.set('discount', searchParams.discount);
                             pageParams.set('page', pageNum.toString());
                             
                             return (
@@ -597,7 +645,7 @@ export default async function CatalogPage({
                         </div>
                         {page < totalPages && (
                           <Link
-                            href={`/catalog?productType=${searchParams.productType}&page=${page + 1}${searchParams.brand ? `&brand=${searchParams.brand}` : searchParams.brandId ? `&brandId=${searchParams.brandId}` : ''}${searchParams.sort ? `&sort=${searchParams.sort}` : ''}${searchParams.audience ? `&audience=${searchParams.audience}` : ''}${searchParams.formFactor ? `&formFactor=${searchParams.formFactor}` : ''}${searchParams.signalProcessing ? `&signalProcessing=${searchParams.signalProcessing}` : ''}${searchParams.powerLevel ? `&powerLevel=${searchParams.powerLevel}` : ''}${searchParams.hearingLossLevel ? `&hearingLossLevel=${searchParams.hearingLossLevel}` : ''}${searchParams.smartphoneCompatibility ? `&smartphoneCompatibility=${searchParams.smartphoneCompatibility}` : ''}`}
+                            href={`/catalog?productType=${searchParams.productType}&page=${page + 1}${searchParams.brand ? `&brand=${searchParams.brand}` : searchParams.brandId ? `&brandId=${searchParams.brandId}` : ''}${searchParams.sort ? `&sort=${searchParams.sort}` : ''}${searchParams.catalogId ? `&catalogId=${searchParams.catalogId}` : ''}${searchParams.audience ? `&audience=${searchParams.audience}` : ''}${searchParams.formFactor ? `&formFactor=${searchParams.formFactor}` : ''}${searchParams.signalProcessing ? `&signalProcessing=${searchParams.signalProcessing}` : ''}${searchParams.powerLevel ? `&powerLevel=${searchParams.powerLevel}` : ''}${searchParams.hearingLossLevel ? `&hearingLossLevel=${searchParams.hearingLossLevel}` : ''}${searchParams.smartphoneCompatibility ? `&smartphoneCompatibility=${searchParams.smartphoneCompatibility}` : ''}${searchParams.discount ? `&discount=${searchParams.discount}` : ''}`}
                             className="px-4 py-2 rounded-lg border border-border/60 bg-white text-sm font-medium text-foreground transition hover:border-brand-primary/50 hover:bg-muted/20"
                           >
                             {locale === 'ru' ? 'Вперед' : 'Keyingi'}

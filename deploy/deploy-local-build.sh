@@ -8,7 +8,7 @@ APP=${1:-all}  # backend, frontend, yoki all (default: all)
 echo "🚀 Local build va deploy: $APP"
 echo ""
 
-LOCAL_DIR="/root/acoustic.uz"
+LOCAL_DIR="/var/www/acoustic.uz"
 PROD_DIR="/var/www/acoustic.uz"
 
 cd "$LOCAL_DIR"

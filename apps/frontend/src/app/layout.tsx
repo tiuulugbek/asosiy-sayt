@@ -5,6 +5,7 @@ import { Providers } from './providers';
 import SiteHeader from '@/components/site-header';
 import SiteFooter from '@/components/site-footer';
 import TelegramButton from '@/components/telegram-button';
+import UtmCapture from '@/components/utm-capture';
 import DebugHydration from '@/app/debug-hydration';
 import { detectLocale } from '@/lib/locale-server';
 import { getSettings } from '@/lib/api-server';
@@ -43,16 +44,37 @@ export async function generateMetadata(): Promise<Metadata> {
     console.error('[Layout] Failed to fetch favicon:', error);
   }
 
+  const ogImage = `${baseUrl}/og-image.jpg`;
+
   return {
     title: 'Acoustic.uz - Eshitish markazi',
     description: 'Eshitish qobiliyatini tiklash va yaxshilash markazi',
-    alternates: {
-      canonical: baseUrl,
-      languages: {
-        uz: baseUrl,
-        ru: baseUrl, // Same URL since we use cookie-based locale detection
-        'x-default': baseUrl,
-      },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true },
+    },
+    openGraph: {
+      title: 'Acoustic.uz - Eshitish markazi',
+      description: 'Eshitish qobiliyatini tiklash va yaxshilash markazi',
+      url: baseUrl,
+      siteName: 'Acoustic.uz',
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: 'Acoustic — Eshitish markazi',
+        },
+      ],
+      locale: locale === 'ru' ? 'ru_RU' : 'uz_UZ',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Acoustic.uz - Eshitish markazi',
+      description: 'Eshitish qobiliyatini tiklash va yaxshilash markazi',
+      images: [ogImage],
     },
     icons: {
       icon: [
@@ -140,7 +162,11 @@ export default async function RootLayout({
         <link rel="dns-prefetch" href={`https://${apiDomain}`} />
         <link rel="preconnect" href={`https://${apiDomain}`} crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#f97316" />
         
         {/* Preload critical resources */}
         {/* Favicon preload removed - handled by route */}
@@ -266,9 +292,10 @@ export default async function RootLayout({
             }}
           />
           <div className="flex min-h-screen flex-col bg-gray-50" suppressHydrationWarning style={{ backgroundColor: '#f9fafb', minHeight: '100vh' }}>
+            <UtmCapture />
             <DebugHydration />
             <SiteHeader initialSettings={settings} initialLocale={locale as 'uz' | 'ru'} />
-            <main className="flex-1" suppressHydrationWarning>{children}</main>
+            <main className="flex-1 pb-16 md:pb-0" suppressHydrationWarning>{children}</main>
             <SiteFooter initialLocale={locale as 'uz' | 'ru'} />
             <TelegramButton initialLocale={locale as 'uz' | 'ru'} />
           </div>

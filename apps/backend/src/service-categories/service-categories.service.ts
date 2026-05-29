@@ -1,6 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Eski URL sluglari → bazadagi kanonik slug (DB o'zgartirilmaydi) */
+const CATEGORY_SLUG_ALIASES: Record<string, string> = {
+  'bolalarda-eshitishni-diagnostika-qilish': 'kids-test',
+};
+
+function resolveCategorySlug(slug: string): string {
+  const key = slug.trim().toLowerCase();
+  return CATEGORY_SLUG_ALIASES[key] ?? slug;
+}
+
 @Injectable()
 export class ServiceCategoriesService {
   constructor(private prisma: PrismaService) {}
@@ -63,7 +73,7 @@ export class ServiceCategoriesService {
   }
 
   async findBySlug(slug: string, publicOnly = false) {
-    const where: any = { slug };
+    const where: any = { slug: resolveCategorySlug(slug) };
     if (publicOnly) {
       where.status = 'published';
     }

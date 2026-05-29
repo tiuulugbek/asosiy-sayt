@@ -51,7 +51,7 @@ export default function MobileFilterDrawer({ locale, brandTabs, searchParams }: 
       {/* Filter Button - Mobile Only */}
       <button
         onClick={() => setIsOpen(true)}
-        className="lg:hidden fixed bottom-4 right-4 z-40 flex items-center gap-2 bg-brand-primary text-white px-4 py-3 rounded-full shadow-lg hover:bg-brand-accent transition-colors"
+        className="lg:hidden fixed bottom-20 right-4 z-40 flex items-center gap-2 bg-brand-primary text-white px-4 py-3 rounded-full shadow-lg hover:bg-brand-accent transition-colors"
       >
         <Filter size={20} />
         <span className="font-medium">

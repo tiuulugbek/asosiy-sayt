@@ -7,12 +7,12 @@
 DATABASE_URL="postgresql://acoustic_user:Acoustic%23%234114@localhost:5432/acousticwebdb"
 
 # Backup papkasi
-BACKUP_DIR="/root/acoustic.uz/backups"
+BACKUP_DIR="/var/www/acoustic.uz/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/acousticwebdb_${DATE}.sql.gz"
 
 # Telegram bot konfiguratsiyasi
-ENV_FILE="/root/acoustic.uz/apps/backend/.env"
+ENV_FILE="/var/www/acoustic.uz/apps/backend/.env"
 TELEGRAM_BOT_TOKEN="8460957603:AAFTv7EIdgwSunJCOlAmklb07HLYO81NdUs"
 TELEGRAM_CHAT_IDS="280034232"
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Acoustic.uz Frontend - Background Start Script
 
-PROJECT_DIR="/root/acoustic.uz"
+PROJECT_DIR="/var/www/acoustic.uz"
 FRONTEND_DIR="$PROJECT_DIR/apps/frontend"
 LOG_FILE="/tmp/acoustic-frontend.log"
 PID_FILE="/tmp/acoustic-frontend.pid"

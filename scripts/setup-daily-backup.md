@@ -5,7 +5,7 @@
 `.env` faylida Telegram bot sozlamalarini to'ldiring:
 
 ```bash
-# /root/acoustic.uz/apps/backend/.env
+# /var/www/acoustic.uz/apps/backend/.env
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 ```
@@ -30,7 +30,7 @@ TELEGRAM_CHAT_ID=your_chat_id_here
 
 ```bash
 # Skriptni bajarish
-/root/acoustic.uz/scripts/daily-backup-telegram.sh
+/var/www/acoustic.uz/scripts/daily-backup-telegram.sh
 ```
 
 ## 3. Har kunlik avtomatik backup sozlash
@@ -42,7 +42,7 @@ TELEGRAM_CHAT_ID=your_chat_id_here
 crontab -e
 
 # Quyidagi qatorni qo'shing (har kuni ertalab 2:00 da)
-0 2 * * * /root/acoustic.uz/scripts/daily-backup-telegram.sh >> /var/log/daily-backup.log 2>&1
+0 2 * * * /var/www/acoustic.uz/scripts/daily-backup-telegram.sh >> /var/log/daily-backup.log 2>&1
 ```
 
 ### Usul 2: Systemd timer orqali
@@ -61,7 +61,7 @@ After=network.target postgresql.service
 [Service]
 Type=oneshot
 User=root
-ExecStart=/root/acoustic.uz/scripts/daily-backup-telegram.sh
+ExecStart=/var/www/acoustic.uz/scripts/daily-backup-telegram.sh
 StandardOutput=journal
 StandardError=journal
 
@@ -98,7 +98,7 @@ sudo systemctl status daily-backup.timer
 
 ## 4. Backup fayllarini boshqarish
 
-- Backup'lar `/root/acoustic.uz/backups/` papkasida saqlanadi
+- Backup'lar `/var/www/acoustic.uz/backups/` papkasida saqlanadi
 - 30 kundan eski backup'lar avtomatik o'chiriladi
 - Backup fayllar `.sql.gz` formatida (gzip bilan siqilgan)
 
@@ -106,7 +106,7 @@ sudo systemctl status daily-backup.timer
 
 ```bash
 # Backup'lar ro'yxati
-ls -lh /root/acoustic.uz/backups/
+ls -lh /var/www/acoustic.uz/backups/
 
 # Cron job'ni tekshirish
 crontab -l

@@ -123,7 +123,7 @@ function SearchAutocomplete({ locale, isMobile = false }: { locale: Locale; isMo
             onKeyDown={handleKeyDown}
             onFocus={() => query.length >= 3 && setIsOpen(true)}
             placeholder={locale === 'ru' ? 'Поиск' : 'Qidiruv'}
-            className="w-full rounded-full border border-border/60 bg-white px-10 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
+            className="w-full rounded-full border border-border/60 bg-white px-10 py-2 text-base focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
             suppressHydrationWarning
           />
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -271,6 +271,7 @@ export default function SiteHeader({ initialSettings = null, initialLocale }: Si
   const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileOpenDropdown, setMobileOpenDropdown] = useState<string | null>(null);
   
   // Update locale from DOM after mount if it differs from server-provided locale
@@ -587,7 +588,7 @@ export default function SiteHeader({ initialSettings = null, initialLocale }: Si
   }, [displayLocale, headerMenuItems.length, navItems.length, catalogMenuItems.length]);
 
   return (
-    <header className="border-b shadow-sm" key={`header-${displayLocale}`} suppressHydrationWarning>
+    <header className="sticky top-0 z-40 border-b bg-white/95 shadow-sm backdrop-blur-sm" key={`header-${displayLocale}`} suppressHydrationWarning>
       <div className="bg-white" suppressHydrationWarning>
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-6" suppressHydrationWarning>
           {/* Logo - Left */}
@@ -638,7 +639,7 @@ export default function SiteHeader({ initialSettings = null, initialLocale }: Si
             {/* Mobile Menu Button */}
             <button
               type="button"
-              className="inline-flex items-center rounded-full border border-border p-2 text-muted-foreground lg:hidden"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border p-2 text-muted-foreground lg:hidden"
               onClick={() => {
                 const newValue = !mobileOpen;
                 setMobileOpen(newValue);
@@ -687,8 +688,16 @@ export default function SiteHeader({ initialSettings = null, initialLocale }: Si
                   <div 
                     key={`${item.href}-${displayLocale}`} 
                     className={`group relative flex-1 ${borderClass}`}
-                    onMouseEnter={() => setOpenDropdown(item.href)}
-                    onMouseLeave={() => setOpenDropdown(null)}
+                    onMouseEnter={() => {
+                      if (dropdownCloseTimerRef.current) {
+                        clearTimeout(dropdownCloseTimerRef.current);
+                        dropdownCloseTimerRef.current = null;
+                      }
+                      setOpenDropdown(item.href);
+                    }}
+                    onMouseLeave={() => {
+                      dropdownCloseTimerRef.current = setTimeout(() => setOpenDropdown(null), 150);
+                    }}
                   >
                     <Link
                       href={item.href}
@@ -698,7 +707,7 @@ export default function SiteHeader({ initialSettings = null, initialLocale }: Si
                       <span suppressHydrationWarning>{item.label}</span>
                       <ChevronDown className={`h-3 w-3 transition ${isOpen ? 'rotate-180' : ''}`} />
                     </Link>
-                    <div className={`absolute left-0 top-full z-30 min-w-[220px] flex-col gap-1 rounded-b-3xl border border-brand-primary/30 bg-white/95 p-3 text-brand-accent shadow-lg ${isOpen ? 'flex' : 'hidden'}`} style={{ marginTop: '-1px' }}>
+                    <div className={`absolute left-0 top-full z-30 min-w-[220px] flex-col gap-1 rounded-b-3xl border border-brand-primary/30 bg-white/95 p-3 text-brand-accent shadow-lg ${isOpen ? 'flex' : 'hidden'}`} style={{ marginTop: 0 }}>
                       {item.children.length > 0 ? (
                         item.children.map((child) => (
                           <Link

@@ -17,7 +17,13 @@ import {
   Row,
   Col,
 } from 'antd';
-import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import PageHeader from '../components/common/PageHeader';
+import FilterPanel from '../components/common/FilterPanel';
+import ListTable from '../components/common/ListTable';
+import { useTableLoading } from '../hooks/useTableLoading';
+import TableActions from '../components/common/TableActions';
+import StatusTag from '../components/common/StatusTag';
 import type { UploadProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -41,6 +47,7 @@ import {
 import { createSlug } from '../utils/slug';
 import { normalizeImageUrl } from '../utils/image';
 import { compressImage } from '../utils/image-compression';
+import ImageSizeHint from '../components/ImageSizeHint';
 
 const statusOptions = [
   { label: 'Nashr etilgan', value: 'published' },
@@ -50,13 +57,16 @@ const statusOptions = [
 
 export default function ServiceCategoriesPage() {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery<ServiceCategoryDto[], ApiError>({
+  const { data, isLoading, isFetching, isPending } = useQuery<ServiceCategoryDto[], ApiError>({
     queryKey: ['service-categories-admin'],
     queryFn: getServiceCategoriesAdmin,
   });
+  const tableLoading = useTableLoading({ isLoading, isFetching, isPending });
 
   const categories = data ?? [];
 
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ServiceCategoryDto | null>(null);
   const [form] = Form.useForm();
@@ -260,10 +270,7 @@ export default function ServiceCategoriesPage() {
         title: 'Holati',
         dataIndex: 'status',
         key: 'status',
-        render: (value: ServiceCategoryDto['status']) => {
-          const color = value === 'published' ? 'green' : value === 'draft' ? 'orange' : 'default';
-          return <Tag color={color}>{value}</Tag>;
-        },
+        render: (value: ServiceCategoryDto['status']) => <StatusTag status={value} />,
       },
       {
         title: 'Tartib',
@@ -278,44 +285,35 @@ export default function ServiceCategoriesPage() {
       {
         title: 'Amallar',
         key: 'actions',
+        width: 100,
+        fixed: 'right' as const,
         render: (_, record) => (
-          <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Tahrirlash
-            </Button>
-            <Popconfirm
-              title="Kategoriyani o'chirish"
-              description="Ushbu kategoriyani o'chirishni tasdiqlang"
-              onConfirm={() => handleDelete(record)}
-              okText="Ha"
-              cancelText="Yo'q"
-            >
-              <Button danger size="small" loading={isDeleting}>
-                O'chirish
-              </Button>
-            </Popconfirm>
-          </Space>
+          <TableActions onEdit={() => openEditModal(record)} onDelete={() => handleDelete(record)} loading={isDeleting} />
         ),
       },
     ],
     [isDeleting],
   );
 
+  const filtered = useMemo(() => {
+    return categories.filter((c) => {
+      if (statusFilter && c.status !== statusFilter) return false;
+      if (!searchText.trim()) return true;
+      const q = searchText.toLowerCase();
+      return c.name_uz.toLowerCase().includes(q) || c.name_ru.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q);
+    });
+  }, [categories, searchText, statusFilter]);
+
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={openCreateModal}>
-          Yangi kategoriya
-        </Button>
-      </Space>
-
-      <Table
-        loading={isLoading}
-        dataSource={categories}
-        columns={columns}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
-      />
+      <div className="mb-4 flex justify-end">
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>Yangi kategoriya</Button>
+      </div>
+      <FilterPanel onClear={() => { setSearchText(''); setStatusFilter(undefined); }}>
+        <Input placeholder="Kategoriya qidirish..." value={searchText} onChange={(e) => setSearchText(e.target.value)} allowClear size="large" className="min-w-[240px] flex-1" />
+        <Select placeholder="Holat" allowClear value={statusFilter} onChange={setStatusFilter} options={statusOptions} className="min-w-[140px]" />
+      </FilterPanel>
+      <ListTable loading={tableLoading} dataSource={filtered} columns={columns} />
 
       <Modal
         title={editingCategory ? 'Kategoriyani tahrirlash' : 'Yangi kategoriya'}
@@ -387,6 +385,7 @@ export default function ServiceCategoriesPage() {
             extra="Kategoriya rasmi (ixtiyoriy)"
           >
             <div>
+              <ImageSizeHint type="service" showAsAlert={false} />
               <Row gutter={16}>
                 <Col span={12}>
                   <Upload

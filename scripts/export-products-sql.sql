@@ -5,7 +5,7 @@
 \timing off
 
 -- JSON formatida export qilish
-\o /root/acoustic.uz/scripts/products-export.json
+\o /var/www/acoustic.uz/scripts/products-export.json
 
 SELECT json_agg(
   json_build_object(

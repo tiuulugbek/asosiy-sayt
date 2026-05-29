@@ -3,7 +3,7 @@
 ## 1. Kerakli kutubxonalarni o'rnatish
 
 ```bash
-cd /root/acoustic.uz
+cd /var/www/acoustic.uz
 npm install mammoth
 # yoki
 pnpm add mammoth
