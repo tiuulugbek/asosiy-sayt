@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Check, FileText, Minus, Play, Plus, User } from 'lucide-react';
+import { Check, FileText, Minus, Play, Plus, User, X } from 'lucide-react';
 import { getLocaleFromDOM } from '@/lib/locale-client';
 import { TonePlayer, type Ear } from '@/lib/hearing-test/tone-player';
 import { MAX_STEP, MIN_STEP, TEST_FREQUENCIES, levelForStep } from '@/lib/hearing-test/levels';
@@ -33,9 +33,10 @@ const conclusionColor: Record<Conclusion, string> = {
   'check-needed': '#DC2626',
 };
 
-function Title({ parts, className = '' }: { parts: Headline; className?: string }) {
+function Title({ parts, size = 'lg', className = '' }: { parts: Headline; size?: 'lg' | 'md'; className?: string }) {
+  const sizeClass = size === 'lg' ? 'text-3xl md:text-5xl' : 'text-2xl md:text-4xl';
   return (
-    <h1 className={`text-3xl font-light leading-tight text-foreground md:text-5xl ${className}`}>
+    <h1 className={`${sizeClass} font-light leading-tight text-foreground ${className}`}>
       {parts[0]}
       <span className="font-bold text-brand-primary">{parts[1]}</span>
       {parts[2]}
@@ -84,6 +85,7 @@ export default function ToneTest() {
   const [notHeard, setNotHeard] = useState<Record<Ear, boolean[]>>({ left: blankFlags(), right: blankFlags() });
   const [needMove, setNeedMove] = useState(false);
   const [checking, setChecking] = useState<Ear | null>(null);
+  const [checkedOnce, setCheckedOnce] = useState(false);
   const [summary, setSummary] = useState<TestSummary | null>(null);
 
   const t = toneTestTexts[locale];
@@ -126,6 +128,17 @@ export default function ToneTest() {
     sectionRef.current?.scrollIntoView({ block: 'start' });
   }, [step, earIndex, frequencyIndex]);
 
+  // Telefonda tayyorgarlik va ton ekranlari butun ekranni egallaydi; shu paytda orqadagi sahifa aylanmaydi.
+  const immersive = step === 'setup' || step === 'ready' || step === 'tone';
+  useEffect(() => {
+    if (!immersive || !window.matchMedia('(max-width: 767px)').matches) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [immersive]);
+
   // ---- Tovush ---------------------------------------------------------------
 
   const playStep = useCallback(
@@ -152,6 +165,7 @@ export default function ToneTest() {
 
   const runHeadphoneCheck = async () => {
     stopCheck();
+    setCheckedOnce(true);
     const player = getPlayer();
     await player.unlock();
     const play = (side: Ear) => {
@@ -228,6 +242,12 @@ export default function ToneTest() {
     }
   };
 
+  const closeTest = () => {
+    stopCheck();
+    setNeedMove(false);
+    setStep('intro');
+  };
+
   const restart = () => {
     setValues({ left: blankSteps(), right: blankSteps() });
     setNotHeard({ left: blankFlags(), right: blankFlags() });
@@ -264,17 +284,22 @@ export default function ToneTest() {
   return (
     <section
       ref={sectionRef}
-      className="relative mx-auto max-w-5xl scroll-mt-32 overflow-hidden bg-gradient-to-br from-[#F6F5FB] to-white px-5 pb-10 pt-8 md:my-8 md:rounded-3xl md:px-12 md:pb-12 md:pt-10"
+      className={`scroll-mt-32 overflow-hidden bg-gradient-to-br from-[#F6F5FB] to-white px-5 md:relative md:inset-auto md:z-auto md:mx-auto md:my-8 md:block md:h-auto md:max-w-5xl md:rounded-3xl md:px-12 md:pb-12 md:pt-10 ${
+        immersive
+          ? 'fixed inset-0 z-[60] flex h-[100dvh] flex-col pb-[max(1rem,env(safe-area-inset-bottom))] pt-4'
+          : 'relative pb-6 pt-5'
+      }`}
     >
       {(step === 'intro' || step === 'ready') && (
         <EarBackground className="pointer-events-none absolute -right-10 top-10 hidden h-[34rem] text-brand-accent/[0.06] md:block" />
       )}
 
       {/* Bosqichlar */}
-      <ol className="relative flex items-start">
+      <div className="relative flex shrink-0 items-start justify-between">
+      <ol className="flex items-start">
         {stages.map((item, index) => (
           <li key={item.label} className="flex items-start">
-            <div className="flex w-16 flex-col items-center md:w-24">
+            <div className={`flex flex-col items-center md:w-24 ${immersive ? 'w-10' : 'w-16'}`}>
               <span
                 className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
                   index < stage
@@ -286,7 +311,7 @@ export default function ToneTest() {
               >
                 {index < stage ? <Check className="h-5 w-5" /> : item.icon}
               </span>
-              <span className={`mt-2 text-center text-[11px] font-semibold md:text-xs ${index === stage ? 'text-foreground' : 'text-foreground/40'}`}>
+              <span className={`mt-2 text-center text-[11px] font-semibold md:block md:text-xs ${immersive ? 'hidden' : ''} ${index === stage ? 'text-foreground' : 'text-foreground/40'}`}>
                 {item.label}
               </span>
             </div>
@@ -296,21 +321,37 @@ export default function ToneTest() {
           </li>
         ))}
       </ol>
+        {immersive && (
+          <button
+            type="button"
+            onClick={closeTest}
+            aria-label={t.close}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-foreground/20 bg-white text-foreground/70 md:hidden"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </div>
 
-      <div className="relative mt-10 min-h-[22rem] md:mt-16">
+      <div
+        className={`relative md:mt-16 md:block md:min-h-[22rem] md:overflow-visible ${
+          immersive ? 'mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto' : 'mt-6'
+        }`}
+      >
+        <div className={immersive ? 'my-auto w-full py-2 md:my-0 md:py-0' : ''}>
         {step === 'intro' && (
           <div className="max-w-2xl">
             <Title parts={t.intro.title} />
-            <p className="mt-6 text-base leading-relaxed text-foreground/80 md:text-lg">{t.intro.disclaimer}</p>
-            <p className="mt-4 text-base leading-relaxed text-foreground/80 md:text-lg">{t.intro.privacy}</p>
+            <p className="mt-4 text-sm leading-relaxed text-foreground/80 md:mt-6 md:text-lg">{t.intro.disclaimer}</p>
+            <p className="mt-3 text-sm leading-relaxed text-foreground/80 md:mt-4 md:text-lg">{t.intro.privacy}</p>
           </div>
         )}
 
         {step === 'setup' && (
-          <div className="grid gap-8 md:grid-cols-2 md:items-center md:gap-12">
-            <Title parts={t.setup.title} className="md:text-4xl" />
+          <div className="grid gap-5 md:grid-cols-2 md:items-center md:gap-12">
+            <Title parts={t.setup.title} size="md" />
             <div>
-              <ol className="space-y-6">
+              <ol className="space-y-4 md:space-y-6">
                 {t.setup.items.map((item, index) => (
                   <li key={item.title} className="flex items-start gap-4">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-bold text-white">
@@ -318,10 +359,10 @@ export default function ToneTest() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-base font-semibold text-foreground">{item.title}</p>
-                      <p className="text-base text-foreground/70">{item.text}</p>
-                      {index === 1 && <p className="mt-1 text-sm text-muted-foreground">{t.setup.iphone}</p>}
+                      <p className="hidden text-base text-foreground/70 md:block">{item.text}</p>
+                      {index === 1 && <p className="mt-1 text-xs text-muted-foreground md:text-sm">{t.setup.iphone}</p>}
                       {index === 2 && (
-                        <div className="mt-3">
+                        <div className="mt-2 md:mt-3">
                           <button
                             type="button"
                             onClick={runHeadphoneCheck}
@@ -342,7 +383,7 @@ export default function ToneTest() {
                               </span>
                             ))}
                           </div>
-                          <p className="mt-2 text-sm text-muted-foreground">{t.setup.checkHint}</p>
+                          <p className={`mt-2 text-xs text-muted-foreground md:block md:text-sm ${checkedOnce ? '' : 'hidden'}`}>{t.setup.checkHint}</p>
                         </div>
                       )}
                     </div>
@@ -350,13 +391,13 @@ export default function ToneTest() {
                   </li>
                 ))}
               </ol>
-              <p className="mt-6 text-sm text-muted-foreground">{t.setup.note}</p>
+              <p className="mt-6 hidden text-sm text-muted-foreground md:block">{t.setup.note}</p>
             </div>
           </div>
         )}
 
         {step === 'ready' && (
-          <div className="flex flex-col gap-8 md:flex-row md:items-center md:gap-16 md:pl-12 md:pt-8">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:gap-16 md:pl-12 md:pt-8">
             <div>
               <p className="text-base text-foreground/70">{t.ready[ear].kicker}</p>
               <Title parts={t.ready[ear].title} className="mt-2 max-w-md" />
@@ -371,10 +412,10 @@ export default function ToneTest() {
 
         {step === 'tone' && (
           <div className="text-center">
-            <Title parts={t.tone.title} className="mx-auto max-w-3xl md:text-4xl" />
-            <p className="mx-auto mt-4 max-w-xl text-base text-foreground/70">{t.tone.subtitle}</p>
+            <Title parts={t.tone.title} size="md" className="mx-auto max-w-3xl" />
+            <p className="mx-auto mt-4 hidden max-w-xl text-base text-foreground/70 md:block">{t.tone.subtitle}</p>
 
-            <p className="mt-10 text-base font-semibold text-foreground">
+            <p className="mt-6 text-base font-semibold text-foreground md:mt-10">
               {t.tone.ear[ear]} · {frequency} {t.tone.hz}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
                 ({frequencyIndex + 1}/{TEST_FREQUENCIES.length})
@@ -414,7 +455,7 @@ export default function ToneTest() {
               </button>
             </div>
 
-            <p className="mx-auto mt-6 max-w-md text-sm text-muted-foreground">{t.tone.hint}</p>
+            <p className="mx-auto mt-4 max-w-md text-sm text-muted-foreground md:mt-6">{t.tone.hint}</p>
             <div className="mt-3 min-h-[2.5rem]">
               {value > MIN_STEP && (
                 <button
@@ -442,7 +483,7 @@ export default function ToneTest() {
 
         {step === 'results' && summary && (
           <div className="text-center">
-            <Title parts={t.results.titles[summary.conclusion]} className="mx-auto max-w-3xl md:text-4xl" />
+            <Title parts={t.results.titles[summary.conclusion]} size="md" className="mx-auto max-w-3xl" />
             <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-foreground/80">{t.results.bodies[summary.conclusion]}</p>
 
             <div className="mx-auto mt-8 grid max-w-xl gap-8 sm:grid-cols-2">
@@ -493,16 +534,17 @@ export default function ToneTest() {
             </button>
           </div>
         )}
+        </div>
       </div>
 
       {step !== 'results' && (
-        <div className="relative mt-10 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <div className={`relative flex shrink-0 gap-3 sm:justify-end md:mt-10 ${immersive ? 'mt-4' : 'mt-5'}`}>
           {step !== 'intro' && (
-            <button type="button" className={secondaryButton} onClick={back}>
+            <button type="button" className={`${secondaryButton} px-6`} onClick={back}>
               {t.back}
             </button>
           )}
-          <button type="button" className={primaryButton} onClick={next}>
+          <button type="button" className={`${primaryButton} flex-1 sm:flex-none`} onClick={next}>
             {t.next}
           </button>
         </div>

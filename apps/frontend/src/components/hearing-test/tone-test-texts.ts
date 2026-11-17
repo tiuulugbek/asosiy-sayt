@@ -9,6 +9,7 @@ export interface ToneTestTexts {
   stages: { intro: string; left: string; right: string; results: string };
   back: string;
   next: string;
+  close: string;
   intro: { title: Headline; disclaimer: string; privacy: string };
   setup: {
     title: Headline;
@@ -54,6 +55,7 @@ export const toneTestTexts: Record<'uz' | 'ru', ToneTestTexts> = {
     stages: { intro: 'Kirish', left: 'Chap quloq', right: 'Oʻng quloq', results: 'Natija' },
     back: 'Orqaga',
     next: 'Davom etish',
+    close: 'Testni yopish',
     intro: {
       title: ['Keling, ', 'eshitishingizni', ' tekshiramiz'],
       disclaimer:
@@ -65,7 +67,7 @@ export const toneTestTexts: Record<'uz' | 'ru', ToneTestTexts> = {
       items: [
         { title: 'Tinch joy toping', text: 'atrofda shovqin imkon qadar kam boʻlsin' },
         { title: 'Qurilma ovozini eng yuqoriga qoʻying', text: 'telefon yoki kompyuter ovozi maksimal boʻlsin' },
-        { title: 'Naushnikni tekshiring', text: 'tovush avval chap, keyin oʻng quloqda eshitilishi kerak' },
+        { title: 'Naushnikni tekshiring: avval chap, keyin oʻng', text: 'tovush avval chap, keyin oʻng quloqda eshitilishi kerak' },
       ],
       iphone: 'iPhone ishlatayotgan boʻlsangiz, yon tomondagi ovozsiz rejim tugmasini oʻchiring.',
       check: 'Tovushni tekshirish',
@@ -126,6 +128,7 @@ export const toneTestTexts: Record<'uz' | 'ru', ToneTestTexts> = {
     stages: { intro: 'Введение', left: 'Левое ухо', right: 'Правое ухо', results: 'Результат' },
     back: 'Назад',
     next: 'Продолжить',
+    close: 'Закрыть тест',
     intro: {
       title: ['Давайте проверим ', 'ваш слух', ''],
       disclaimer:
@@ -137,7 +140,7 @@ export const toneTestTexts: Record<'uz' | 'ru', ToneTestTexts> = {
       items: [
         { title: 'Найдите тихое место', text: 'вокруг должно быть как можно меньше шума' },
         { title: 'Установите громкость на максимум', text: 'громкость телефона или компьютера должна быть максимальной' },
-        { title: 'Проверьте наушники', text: 'звук должен прозвучать сначала в левом, затем в правом ухе' },
+        { title: 'Проверьте наушники: сначала левый, затем правый', text: 'звук должен прозвучать сначала в левом, затем в правом ухе' },
       ],
       iphone: 'Если у вас iPhone, выключите беззвучный режим переключателем сбоку.',
       check: 'Проверить звук',
