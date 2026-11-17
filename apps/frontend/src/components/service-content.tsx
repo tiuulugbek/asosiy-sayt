@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { processContentShortcodes, ProcessedContent } from './content-processor';
 
 interface ServiceContentProps {
@@ -17,9 +17,9 @@ interface ServiceContentProps {
  * - Paragraphs
  */
 export default function ServiceContent({ content, locale }: ServiceContentProps) {
-  const [renderedContent, setRenderedContent] = useState<JSX.Element | JSX.Element[] | null>(null);
-  
-  useEffect(() => {
+  // Matn render paytida tayyorlanadi (useEffect ichida emas), shunda u server yuboradigan
+  // sahifada ham chiqadi va qidiruv tizimlari uni koʻradi.
+  const renderedContent = useMemo<JSX.Element | JSX.Element[] | null>(() => {
     const computeRenderedContent = () => {
     if (!content || !content.trim()) {
       return null;
@@ -206,8 +206,7 @@ export default function ServiceContent({ content, locale }: ServiceContentProps)
     return elements;
     };
     
-    const result = computeRenderedContent();
-    setRenderedContent(result);
+    return computeRenderedContent();
   }, [content]);
 
   if (!renderedContent || (Array.isArray(renderedContent) && renderedContent.length === 0)) {
