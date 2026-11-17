@@ -467,7 +467,15 @@ export default function SiteFooter({ initialLocale }: SiteFooterProps = {}) {
 
       {/* Copyright */}
       <div className="border-t border-border/60 bg-white py-4 text-center text-xs text-muted-foreground" suppressHydrationWarning>
-        © {new Date().getFullYear()} Acoustic. {displayLocale === 'ru' ? 'Все права защищены.' : 'Barcha huquqlar himoyalangan.'}
+        <div className="flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2">
+          <span suppressHydrationWarning>
+            © {new Date().getFullYear()} Acoustic. {displayLocale === 'ru' ? 'Все права защищены.' : 'Barcha huquqlar himoyalangan.'}
+          </span>
+          <span className="hidden text-border/60 sm:inline">|</span>
+          <Link href="/privacy" className="transition hover:text-brand-primary" suppressHydrationWarning>
+            {displayLocale === 'ru' ? 'Политика конфиденциальности' : 'Maxfiylik siyosati'}
+          </Link>
+        </div>
       </div>
     </footer>
   );

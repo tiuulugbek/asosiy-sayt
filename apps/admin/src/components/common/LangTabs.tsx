@@ -40,7 +40,7 @@ export default function LangTabs({
           </button>
         ))}
       </div>
-      <div>{children(active)}</div>
+      <div key={active}>{children(active)}</div>
     </div>
   );
 }

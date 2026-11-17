@@ -167,6 +167,7 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#f97316" />
+        <meta name="facebook-domain-verification" content="uffz0w6oemb0tcypz9ybwersgvwnba" />
         
         {/* Preload critical resources */}
         {/* Favicon preload removed - handled by route */}

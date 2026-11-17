@@ -123,7 +123,10 @@ async function fetchJson<T>(
       const isServer = typeof window === 'undefined';
       const pathForCacheCheck = path.split('?')[0];
       const needsFreshOnServer =
-        pathForCacheCheck.includes('/doctors') || pathForCacheCheck.includes('/branches/slug/');
+        pathForCacheCheck.includes('/posts') ||
+        pathForCacheCheck.includes('/post-categories') ||
+        pathForCacheCheck.includes('/doctors') ||
+        pathForCacheCheck.includes('/branches/slug/');
       const cacheOptions = isServer
         ? needsFreshOnServer
           ? { cache: 'no-store' as RequestCache }

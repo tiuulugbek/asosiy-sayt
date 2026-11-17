@@ -16,8 +16,9 @@ import dayjs from 'dayjs';
 import { normalizeImageUrl } from '@/lib/image-utils';
 import { optimizeMetaDescription, optimizeTitle, generateSeoDescription } from '@/lib/seo-utils';
 
-// ISR: Revalidate every 2 hours
-export const revalidate = 7200;
+// Admin updates must be visible immediately on article pages.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface PostPageProps {
   params: {

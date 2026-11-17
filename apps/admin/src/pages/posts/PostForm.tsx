@@ -74,15 +74,25 @@ export default function PostForm({ backPath = '/posts', categorySection }: PostF
 
   const handleSave = async () => {
     const v = await form.validateFields();
+    const titleUz = v.title_uz?.trim();
+    const titleRu = v.title_ru?.trim();
+    const bodyUz = v.body_uz?.trim();
+    const bodyRu = v.body_ru?.trim();
+
+    if (!titleUz || !titleRu || !bodyUz || !bodyRu) {
+      message.error('UZ va RU sarlavha hamda mazmun alohida to‘ldirilishi kerak');
+      return;
+    }
+
     await save({
-      title_uz: v.title_uz,
-      title_ru: v.title_ru,
+      title_uz: titleUz,
+      title_ru: titleRu,
       excerpt_uz: v.excerpt_uz,
       excerpt_ru: v.excerpt_ru,
-      body_uz: v.body_uz,
-      body_ru: v.body_ru,
+      body_uz: bodyUz,
+      body_ru: bodyRu,
       slug: v.slug,
-      postType: v.postType,
+      postType: backPath === '/posts' ? 'news' : v.postType,
       categoryId: v.categoryId,
       tags: v.tags ?? [],
       status: v.status,
@@ -96,7 +106,7 @@ export default function PostForm({ backPath = '/posts', categorySection }: PostF
 
   return (
     <FormPageShell title={isEditing ? post?.title_uz ?? 'Maqola' : 'Yangi yangilik'} backTo={backPath}>
-      <Form form={form} layout="vertical" initialValues={{ status: 'published', postType: 'article', tags: [] }}>
+      <Form form={form} layout="vertical" initialValues={{ status: 'published', postType: backPath === '/posts' ? 'news' : 'article', tags: [] }}>
         <FormLayout
           left={
             <>
