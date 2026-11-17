@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { detectLocale } from '@/lib/locale-server';
-import HearingTest from '@/components/hearing-test/hearing-test';
+import ToneTest from '@/components/hearing-test/tone-test';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -11,6 +11,9 @@ export const revalidate = 0;
  * Sabab: natija foydalanuvchi javobiga bogʻliq boʻlmay qolgan — har kimga bir xil
  * natija ("chap quloqda yoʻqotilish aniqlandi") chiqayotgan edi.
  * Test tuzatilgach, bu qiymat true qilinadi.
+ *
+ * Yangi test (sof tonlar bilan, components/hearing-test/tone-test.tsx) sinov uchun
+ * /services/hearing-test?preview=1 manzilida ochiladi; oddiy manzilda xabar turadi.
  */
 const HEARING_TEST_ENABLED = false;
 
@@ -104,10 +107,11 @@ function HearingTestPaused() {
   );
 }
 
-export default function HearingTestPage() {
+export default function HearingTestPage({ searchParams }: { searchParams?: { preview?: string } }) {
+  const showTest = HEARING_TEST_ENABLED || searchParams?.preview === '1';
   return (
     <main className="min-h-screen bg-white">
-      {HEARING_TEST_ENABLED ? <HearingTest /> : <HearingTestPaused />}
+      {showTest ? <ToneTest /> : <HearingTestPaused />}
     </main>
   );
 }
