@@ -26,7 +26,7 @@ fi
 # 2. DATABASE_URL tekshirish
 if [ -z "$DATABASE_URL" ]; then
     echo -e "${YELLOW}⚠️  DATABASE_URL topilmadi, default qiymat ishlatilmoqda...${NC}"
-    DATABASE_URL="postgresql://acoustic_user:Acoustic%23%234114@localhost:5432/acousticwebdb"
+    DATABASE_URL="postgresql://acoustic_user:PAROL_ENV_DAN_OLINADI@localhost:5432/acousticwebdb"
 fi
 
 echo -e "${GREEN}📊 Database:${NC} ${DATABASE_URL:0:60}..."

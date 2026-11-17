@@ -2,7 +2,7 @@
 
 # Telegram Chat ID ni olish skripti
 
-BOT_TOKEN="8460957603:AAFTv7EIdgwSunJCOlAmklb07HLYO81NdUs"
+BOT_TOKEN="${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN muhit oʻzgaruvchisini bering}"
 
 echo "=== Telegram Chat ID ni olish ==="
 echo ""

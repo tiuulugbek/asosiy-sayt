@@ -2,7 +2,7 @@
 
 # Signia apparatlarni yangilash script
 
-PGPASSWORD='Acoustic##4114'
+PGPASSWORD='PAROL_ENV_DAN_OLINADI'
 DB_HOST="localhost"
 DB_USER="acoustic_user"
 DB_NAME="acousticwebdb"

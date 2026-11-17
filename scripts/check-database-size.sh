@@ -2,7 +2,7 @@
 
 # Database hajmini tekshirish skripti
 
-DATABASE_URL="postgresql://acoustic_user:Acoustic%23%234114@localhost:5432/acousticwebdb"
+DATABASE_URL="$(grep -E "^DATABASE_URL=" /var/www/acoustic.uz/apps/backend/.env | cut -d= -f2- | cut -d "?" -f1)"
 
 echo "=== Database hajmi tekshiruvi ==="
 echo ""

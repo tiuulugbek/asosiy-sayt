@@ -113,3 +113,11 @@ backups/
 *.sql.gz
 *.tar.gz
 *~
+
+# Maʼlumotlar bazasi nusxalari va ishlab chiqarish sozlamalari repozitoriyga tushmasin
+/backups/
+backup_*.sql
+*.sql.gz
+*.dump
+deploy/env.production.complete
+deploy/env.production

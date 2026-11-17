@@ -4,16 +4,16 @@
 # psql connection string orqali backup yaratish
 
 # Database konfiguratsiyasi
-DATABASE_URL="postgresql://acoustic_user:Acoustic%23%234114@localhost:5432/acousticwebdb"
+DATABASE_URL="$(grep -E "^DATABASE_URL=" /var/www/acoustic.uz/apps/backend/.env | cut -d= -f2- | cut -d "?" -f1)"
 
 # Backup papkasi
-BACKUP_DIR="/var/www/acoustic.uz/backups"
+BACKUP_DIR="/var/backups/acoustic"
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/acousticwebdb_${DATE}.sql.gz"
 
 # Telegram bot konfiguratsiyasi
 ENV_FILE="/var/www/acoustic.uz/apps/backend/.env"
-TELEGRAM_BOT_TOKEN="8460957603:AAFTv7EIdgwSunJCOlAmklb07HLYO81NdUs"
+TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 TELEGRAM_CHAT_IDS="280034232"
 
 # .env fayldan Telegram Chat ID larni o'qish (bir nechta Chat ID vergul bilan ajratilgan bo'lishi mumkin)
@@ -21,6 +21,10 @@ if [ -f "$ENV_FILE" ]; then
     ENV_CHAT_IDS=$(grep "^TELEGRAM_CHAT_ID=" "$ENV_FILE" | tail -1 | cut -d '=' -f2 | tr -d '"' | tr -d "'" | tr -d ' ' || echo "")
     if [ -n "$ENV_CHAT_IDS" ] && [ "$ENV_CHAT_IDS" != "" ]; then
         TELEGRAM_CHAT_IDS="$ENV_CHAT_IDS"
+    fi
+    # Bot tokeni skript ichida saqlanmaydi: muhit oʻzgaruvchisidan yoki .env dan olinadi
+    if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+        TELEGRAM_BOT_TOKEN=$(grep "^TELEGRAM_BOT_TOKEN=" "$ENV_FILE" | tail -1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || echo "")
     fi
 fi
 

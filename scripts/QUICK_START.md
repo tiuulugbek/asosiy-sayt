@@ -11,7 +11,7 @@ cd /var/www/acoustic.uz
 pg_dump -h localhost -U acoustic_user -d acousticwebdb > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # 2. Migration'ni ishga tushiring
-PGPASSWORD='Acoustic##4114' psql -h localhost -U acoustic_user -d acousticwebdb -f scripts/migration-variant-a-add-numeric-id.sql
+PGPASSWORD='PAROL_ENV_DAN_OLINADI' psql -h localhost -U acoustic_user -d acousticwebdb -f scripts/migration-variant-a-add-numeric-id.sql
 ```
 
 ### Variant 2: Interaktiv Runner (Recommended)
@@ -125,7 +125,7 @@ sudo systemctl start postgresql
 ### Xatolik: "role does not exist"
 ```bash
 # To'g'ri user bilan ulanish
-PGPASSWORD='Acoustic##4114' psql -h localhost -U acoustic_user -d acousticwebdb
+PGPASSWORD='PAROL_ENV_DAN_OLINADI' psql -h localhost -U acoustic_user -d acousticwebdb
 ```
 
 ### Xatolik: "permission denied"

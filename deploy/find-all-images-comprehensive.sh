@@ -18,7 +18,7 @@ echo ""
 
 echo "3. Database'dagi 2026-01 sanali URL'lar:"
 cd /var/www/acoustic.uz
-PGPASSWORD='Acoustic##4114' psql -h localhost -p 5432 -U acoustic_user -d acousticwebdb -t -c 'SELECT url FROM "Media" WHERE url LIKE '\''%2026-01%'\'' ORDER BY "createdAt" DESC LIMIT 10;' 2>/dev/null | while read url; do
+PGPASSWORD='PAROL_ENV_DAN_OLINADI' psql -h localhost -p 5432 -U acoustic_user -d acousticwebdb -t -c 'SELECT url FROM "Media" WHERE url LIKE '\''%2026-01%'\'' ORDER BY "createdAt" DESC LIMIT 10;' 2>/dev/null | while read url; do
     if [ -n "$url" ]; then
         filename=$(echo "$url" | sed 's|/uploads/||')
         if [ -f "/var/www/acoustic.uz/apps/backend/uploads/$filename" ]; then

@@ -9,7 +9,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL || 'postgresql://acoustic_user:Acoustic%23%234114@localhost:5432/acousticwebdb',
+      url: process.env.DATABASE_URL || 'postgresql://acoustic_user:PAROL_ENV_DAN_OLINADI@localhost:5432/acousticwebdb',
     },
   },
 });

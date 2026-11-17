@@ -5,7 +5,7 @@ echo ""
 cd /var/www/acoustic.uz
 
 # Database'dan barcha URL'larni olish
-PGPASSWORD='Acoustic##4114' psql -h localhost -p 5432 -U acoustic_user -d acousticwebdb -t -c 'SELECT url FROM "Media" WHERE url LIKE '\''%/uploads/%'\'' ORDER BY "createdAt" DESC;' 2>/dev/null | while read url; do
+PGPASSWORD='PAROL_ENV_DAN_OLINADI' psql -h localhost -p 5432 -U acoustic_user -d acousticwebdb -t -c 'SELECT url FROM "Media" WHERE url LIKE '\''%/uploads/%'\'' ORDER BY "createdAt" DESC;' 2>/dev/null | while read url; do
     if [ -n "$url" ]; then
         filename=$(echo "$url" | sed 's|/uploads/||')
         

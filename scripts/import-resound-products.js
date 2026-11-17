@@ -7,7 +7,7 @@ const DB_CONFIG = {
   host: 'localhost',
   port: 5432,
   user: 'acoustic_user',
-  password: 'Acoustic##4114',
+  password: 'PAROL_ENV_DAN_OLINADI',
   database: 'acousticwebdb'
 };
 

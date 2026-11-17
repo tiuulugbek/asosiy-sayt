@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 
 // Use DATABASE_URL from environment or default
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://acoustic_user:Acoustic%23%234114@localhost:5432/acousticwebdb';
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://acoustic_user:PAROL_ENV_DAN_OLINADI@localhost:5432/acousticwebdb';
 
 const prisma = new PrismaClient({
   datasources: {

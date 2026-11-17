@@ -3,6 +3,10 @@ import json
 import subprocess
 import sys
 import re
+import os
+
+# Baza manzili skript ichida saqlanmaydi: DATABASE_URL muhit oʻzgaruvchisidan olinadi
+DATABASE_URL = os.environ['DATABASE_URL'].split('?')[0]
 
 # JSON faylni o'qish
 with open('/root/signia-products-import.json', 'r', encoding='utf-8') as f:
@@ -12,7 +16,7 @@ print(f"📦 Mahsulotlar soni: {len(products)}")
 print("")
 
 # Signia brand ID'ni topish
-psql_cmd = ['psql', 'postgresql://acoustic_user:Acoustic%23%234114@localhost:5432/acousticwebdb', '-t', '-A', '-c', "SELECT id FROM \"Brand\" WHERE LOWER(name) LIKE '%signia%' LIMIT 1;"]
+psql_cmd = ['psql', DATABASE_URL, '-t', '-A', '-c', "SELECT id FROM \"Brand\" WHERE LOWER(name) LIKE '%signia%' LIMIT 1;"]
 
 result = subprocess.run(psql_cmd, capture_output=True, text=True)
 brand_id = result.stdout.strip()
@@ -53,7 +57,7 @@ for i, product in enumerate(products, 1):
         
         sql = f"""INSERT INTO "Product" (id, name_uz, name_ru, slug, description_uz, description_ru, price, "productType", "brandId", status, "createdAt", "updatedAt") VALUES (gen_random_uuid(), '{name_uz}', '{name_ru}', '{slug}', {desc_uz_sql}, {desc_ru_sql}, {price}, '{product_type}', '{brand_id}', 'archived', NOW(), NOW()) ON CONFLICT (slug) DO UPDATE SET name_uz = EXCLUDED.name_uz, name_ru = EXCLUDED.name_ru, description_uz = EXCLUDED.description_uz, description_ru = EXCLUDED.description_ru, price = EXCLUDED.price, "updatedAt" = NOW();"""
         
-        psql_cmd = ['psql', 'postgresql://acoustic_user:Acoustic%23%234114@localhost:5432/acousticwebdb', '-c', sql]
+        psql_cmd = ['psql', DATABASE_URL, '-c', sql]
         
         result = subprocess.run(psql_cmd, capture_output=True, text=True)
         

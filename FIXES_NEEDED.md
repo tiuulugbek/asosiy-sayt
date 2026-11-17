@@ -35,7 +35,7 @@ ss -tlnp | grep 5432
 cat /etc/postgresql/*/main/postgresql.conf | grep -E "port|listen_addresses"
 
 # Connection test
-PGPASSWORD='Acoustic##4114' psql -h localhost -U acoustic_user -d acousticwebdb -c "SELECT 1;"
+PGPASSWORD='PAROL_ENV_DAN_OLINADI' psql -h localhost -U acoustic_user -d acousticwebdb -c "SELECT 1;"
 
 # Agar socket orqali ishlayotgan bo'lsa
 psql -h /var/run/postgresql -U acoustic_user -d acousticwebdb -c "SELECT 1;"

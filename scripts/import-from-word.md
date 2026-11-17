@@ -28,7 +28,7 @@ node scripts/import-resound-products.js products.json
 
 # Yoki SQL fayl yaratib, keyin import qilish
 node scripts/generate-import-sql.js products.json
-PGPASSWORD='Acoustic##4114' psql -h localhost -U acoustic_user -d acousticwebdb -f /tmp/import-resound-products.sql
+PGPASSWORD='PAROL_ENV_DAN_OLINADI' psql -h localhost -U acoustic_user -d acousticwebdb -f /tmp/import-resound-products.sql
 ```
 
 ## Eslatma
