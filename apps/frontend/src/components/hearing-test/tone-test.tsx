@@ -7,12 +7,14 @@
  * Har bir tonda foydalanuvchi surgichni yoki + / − tugmalarini ishlatib, tovushni zoʻrgʻa eshitadigan
  * darajaga keltiradi. Ton sof sinus, uzuq-uzuq, faqat tekshirilayotgan quloqqa beriladi
  * (lib/hearing-test/tone-player.ts). Natija tashxis emas: uch xulosadan biri koʻrsatiladi
- * (lib/hearing-test/interpret.ts). Hech qanday maʼlumot serverga yuborilmaydi.
+ * (lib/hearing-test/interpret.ts). Test natijasi hech qayerga yuborilmaydi; statistikaga faqat
+ * "test boshlandi", "test tugadi" va tugma bosilgani haqidagi hodisalar boradi (natijasiz).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Check, FileText, Minus, Play, Plus, User, X } from 'lucide-react';
 import { getLocaleFromDOM } from '@/lib/locale-client';
+import { trackEvent } from '@/lib/analytics';
 import { TonePlayer, type Ear } from '@/lib/hearing-test/tone-player';
 import { MAX_STEP, MIN_STEP, TEST_FREQUENCIES, levelForStep } from '@/lib/hearing-test/levels';
 import { summarizeTest, type Conclusion, type EarResult, type TestSummary } from '@/lib/hearing-test/interpret';
@@ -86,6 +88,7 @@ export default function ToneTest() {
   const [needMove, setNeedMove] = useState(false);
   const [checking, setChecking] = useState<Ear | null>(null);
   const [checkedOnce, setCheckedOnce] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [summary, setSummary] = useState<TestSummary | null>(null);
 
   const t = toneTestTexts[locale];
@@ -97,6 +100,7 @@ export default function ToneTest() {
   const firstRender = useRef(true);
   const playerRef = useRef<TonePlayer | null>(null);
   const checkTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const playingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getPlayer = useCallback(() => {
     if (!playerRef.current) playerRef.current = new TonePlayer();
@@ -113,6 +117,7 @@ export default function ToneTest() {
     setLocale(getLocaleFromDOM() === 'ru' ? 'ru' : 'uz');
     return () => {
       checkTimers.current.forEach(clearTimeout);
+      if (playingTimer.current) clearTimeout(playingTimer.current);
       playerRef.current?.close();
       playerRef.current = null;
     };
@@ -125,6 +130,8 @@ export default function ToneTest() {
       return;
     }
     playerRef.current?.stop();
+    if (playingTimer.current) clearTimeout(playingTimer.current);
+    setPlaying(false);
     sectionRef.current?.scrollIntoView({ block: 'start' });
   }, [step, earIndex, frequencyIndex]);
 
@@ -145,12 +152,16 @@ export default function ToneTest() {
     async (stepValue: number, toneEar: Ear, toneFrequency: number) => {
       const player = getPlayer();
       const level = levelForStep(stepValue);
+      if (playingTimer.current) clearTimeout(playingTimer.current);
       if (level === null) {
         player.stop();
+        setPlaying(false);
         return;
       }
       await player.unlock();
-      player.play({ frequency: toneFrequency, levelDb: level, ear: toneEar, pulses: TONE_PULSES, pulseMs: 350, gapMs: 250 });
+      const duration = player.play({ frequency: toneFrequency, levelDb: level, ear: toneEar, pulses: TONE_PULSES, pulseMs: 350, gapMs: 250 });
+      setPlaying(true);
+      playingTimer.current = setTimeout(() => setPlaying(false), duration);
     },
     [getPlayer],
   );
@@ -187,6 +198,7 @@ export default function ToneTest() {
     });
     setSummary(summarizeTest(toResult('left'), toResult('right')));
     setStep('results');
+    trackEvent('hearing_test_complete', { category: 'hearing_test' });
   };
 
   const advanceTone = (flags: Record<Ear, boolean[]>) => {
@@ -204,8 +216,10 @@ export default function ToneTest() {
 
   const next = () => {
     stopCheck();
-    if (step === 'intro') setStep('setup');
-    else if (step === 'setup') {
+    if (step === 'intro') {
+      setStep('setup');
+      trackEvent('hearing_test_start', { category: 'hearing_test' });
+    } else if (step === 'setup') {
       setEarIndex(0);
       setFrequencyIndex(0);
       setStep('ready');
@@ -455,7 +469,19 @@ export default function ToneTest() {
               </button>
             </div>
 
-            <p className="mx-auto mt-4 max-w-md text-sm text-muted-foreground md:mt-6">{t.tone.hint}</p>
+            <p className="mt-3 flex h-5 items-center justify-center gap-2 text-sm font-medium text-brand-primary" aria-live="polite">
+              {playing && (
+                <>
+                  <span className="flex items-end gap-0.5" aria-hidden="true">
+                    <span className="h-2 w-1 animate-pulse rounded-full bg-brand-primary" />
+                    <span className="h-4 w-1 animate-pulse rounded-full bg-brand-primary [animation-delay:150ms]" />
+                    <span className="h-3 w-1 animate-pulse rounded-full bg-brand-primary [animation-delay:300ms]" />
+                  </span>
+                  {t.tone.playing}
+                </>
+              )}
+            </p>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground md:mt-3">{t.tone.hint}</p>
             <div className="mt-3 min-h-[2.5rem]">
               {value > MIN_STEP && (
                 <button
@@ -511,10 +537,14 @@ export default function ToneTest() {
                 <h2 className="text-xl font-bold text-foreground">{t.results.cardTitle}</h2>
                 <p className="mt-3 text-sm leading-relaxed text-foreground/80">{t.results.cardText}</p>
                 <div className="mt-5 flex flex-col gap-3">
-                  <a href="tel:1385" className={primaryButton}>
+                  <a href="tel:1385" className={primaryButton} onClick={() => trackEvent('hearing_test_call_click', { category: 'hearing_test' })}>
                     {t.results.call}
                   </a>
-                  <Link href="/branches" className={secondaryButton}>
+                  <Link
+                    href="/branches"
+                    className={secondaryButton}
+                    onClick={() => trackEvent('hearing_test_branches_click', { category: 'hearing_test' })}
+                  >
                     {t.results.branches}
                   </Link>
                 </div>

@@ -27,6 +27,7 @@ export interface ToneTestTexts {
     ear: Record<Ear, string>;
     hz: string;
     hint: string;
+    playing: string;
     replay: string;
     quieter: string;
     louder: string;
@@ -85,6 +86,7 @@ export const toneTestTexts: Record<'uz' | 'ru', ToneTestTexts> = {
       ear: { left: 'Chap quloq', right: 'Oʻng quloq' },
       hz: 'Gs',
       hint: 'Tovush endi eshitila boshlagan joyda toʻxtang va "Davom etish"ni bosing.',
+      playing: 'Tovush berilmoqda…',
       replay: 'Qayta eshitish',
       quieter: 'Pasaytirish',
       louder: 'Balandlatish',
@@ -158,6 +160,7 @@ export const toneTestTexts: Record<'uz' | 'ru', ToneTestTexts> = {
       ear: { left: 'Левое ухо', right: 'Правое ухо' },
       hz: 'Гц',
       hint: 'Остановитесь там, где звук только начал быть слышен, и нажмите «Продолжить».',
+      playing: 'Звук воспроизводится…',
       replay: 'Прослушать ещё раз',
       quieter: 'Тише',
       louder: 'Громче',
