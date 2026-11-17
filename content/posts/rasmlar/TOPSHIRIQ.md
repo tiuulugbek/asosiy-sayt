@@ -8,7 +8,10 @@ Muqova kerak emas: yettita maqolaning hammasida muqova bor. Oltitasida matn bosh
 
 **Fotosuratlar**
 
-- Format: WebP, 1600×900 piksel (16:9), 250 KB dan oshmasin.
+- Format: WebP, 16:9, maqsad oʻlcham 1600×900 piksel, 250 KB dan oshmasin.
+- Generator boshqa nisbatda bersa (masalan, 3:2), rasm oʻrtadan 16:9 qilib kesiladi. Kengligi 1280 pikseldan kam boʻlmasin; kichik rasm sunʼiy kattalashtirilmaydi (masalan, 1536×864 boʻlsa, shunday qoladi).
+- Asos: saytda maqola ustuni kompyuterda taxminan 725 piksel, telefonda 330–360 piksel; rasm ustun kengligiga toʻliq yoyiladi va sayt uni qayta siqmaydi. 1600 piksel tiniq ekranlar uchun yetarli, 250 KB chegarasi sahifa tez ochilishi uchun.
+- Asosiy obyekt kadr oʻrtasida tursin, chetlarda muhim narsa boʻlmasin.
 - Rasm ichida yozuv, raqam, logotip, suv belgisi boʻlmasin.
 - Odamlar oʻzbek yoki Markaziy Osiyo qiyofasida, kundalik oddiy kiyimda, tabiiy yuz ifodasi bilan.
 - Qoʻl, quloq va yuz buzilmagan boʻlsin. Qoʻrqituvchi tibbiy manzara boʻlmasin.
@@ -22,10 +25,11 @@ Har bir fotosurat promptining oxiriga shu ikki qism qoʻshiladi:
 
 **Sxemalar**
 
-- Format: SVG, `viewBox="0 0 1200 675"`. Rasm generatsiyasi bilan emas, kod bilan chiziladi, chunki ichida yozuv bor.
+- Format: SVG, kengligi 800 birlik: `viewBox="0 0 800 H"`. Balandlik (H) mazmunga qarab tanlanadi, odatda 600–900. Rasm generatsiyasi bilan emas, kod bilan chiziladi, chunki ichida yozuv bor.
+- Sxemalar telefon uchun chiziladi: telefonda ustun kengligi 330–360 piksel, yaʼni sxema taxminan 2,3 baravar kichrayadi. Shuning uchun elementlar yonma-yon koʻpi bilan ikki ustunda joylashadi, qolgani pastga qarab ketadi.
 - Har bir sxema ikki tilda: `-uz.svg` va `-ru.svg`. Chizma bir xil, faqat yozuvlar farq qiladi.
 - Ranglar: asosiy `#3F3091` (binafsha), urgʻu `#F07E22` (toʻq sariq), fon oq yoki juda och kulrang, matn `#1F2937`.
-- Shrift: tizim shrifti (`font-family: system-ui, -apple-system, 'Segoe UI', sans-serif`), eng kichik yozuv 22 px dan kam boʻlmasin (telefonda oʻqilishi uchun).
+- Shrift: tizim shrifti (`font-family: system-ui, -apple-system, 'Segoe UI', sans-serif`), asosiy yozuvlar 32 px dan, eng mayda izohlar 28 px dan kichik boʻlmasin (telefonda taxminan 12–14 px boʻlib koʻrinadi). Sigʻmagan yozuv kichraytirilmaydi, ikki-uch qatorga boʻlinadi.
 - Oʻzbekcha yozuvlarda oʻ va gʻ uchun U+02BB (ʻ) belgisi ishlatiladi, oddiy apostrof emas.
 - Sodda, tekis uslub: ortiqcha soya, gradient va bezaksiz. Tibbiy aniqlikka daʼvo qiladigan mayda anatomik tafsilot kerak emas.
 - Yozuvlar quyida berilganidek aynan koʻchiriladi, qoʻshimcha matn qoʻshilmaydi.
@@ -90,7 +94,7 @@ Prompt:
 
 ### 1. `belgilar-sabab-guruhlari-uz.svg` / `-ru.svg`
 
-Ikki ustunli sodda sxema. Tepada umumiy sarlavha, ostida ikki yonma-yon blok, har birida sarlavha va uchta misol. Chap blok binafsha, oʻng blok toʻq sariq hoshiyada.
+Tepada umumiy sarlavha, ostida ustma-ust ikki blok, har biri toʻliq kenglikda: sarlavha, uchta misol va izoh. Birinchi (jadvalda "chap") blok binafsha, ikkinchi ("oʻng") blok toʻq sariq hoshiyada. Tavsiya etilgan oʻlcham: 800×760.
 
 | | uz | ru |
 |---|---|---|
@@ -112,7 +116,7 @@ Namunaviy audiogramma. Toʻrli koordinata maydoni. Gorizontal oʻq tepada: 250, 
 - qizil chiziq, nuqtalari doiracha (oʻng quloq): 250→20, 500→25, 1000→30, 2000→45, 4000→60, 8000→65;
 - koʻk chiziq, nuqtalari xoch (chap quloq): 250→25, 500→30, 1000→35, 2000→50, 4000→65, 8000→70.
 
-Yuqoridagi 0–25 oraliq och yashil fon bilan belgilanadi.
+Yuqoridagi 0–25 oraliq och yashil fon bilan belgilanadi. Tavsiya etilgan oʻlcham: 800×680; chiziqlar izohi (qaysi rang qaysi quloq) maydon ostida turadi.
 
 | | uz | ru |
 |---|---|---|
@@ -129,7 +133,7 @@ Yuqoridagi 0–25 oraliq och yashil fon bilan belgilanadi.
 
 ### 4. `tinnitus-sabablar-uz.svg` / `-ru.svg`
 
-Olti bir xil kartochka (2 qator × 3 ustun), har birida sodda belgi va yozuv.
+Olti bir xil kartochka (2 ustun × 3 qator), har birida sodda belgi va yozuv. Tavsiya etilgan oʻlcham: 800×720.
 
 | № | uz | ru | Belgi |
 |---|---|---|---|
@@ -146,7 +150,7 @@ Olti bir xil kartochka (2 qator × 3 ustun), har birida sodda belgi va yozuv.
 
 ### 5. `tinnitus-yetti-odat-uz.svg` / `-ru.svg`
 
-Yetti kartochka (birinchi qatorda 4 ta, ikkinchisida 3 ta, oʻrtaga tekislangan), har birida raqam, sodda belgi va yozuv.
+Yetti kartochka ikki ustunda (toʻrt qator, oxirgi yettinchi kartochka oʻrtaga tekislangan), har birida raqam, sodda belgi va yozuv. Tavsiya etilgan oʻlcham: 800×860.
 
 | № | uz | ru | Belgi |
 |---|---|---|---|
@@ -164,7 +168,7 @@ Yetti kartochka (birinchi qatorda 4 ta, ikkinchisida 3 ta, oʻrtaga tekislangan)
 
 ### 8. `bolalar-yoshga-qarab-javoblar-uz.svg` / `-ru.svg`
 
-Gorizontal vaqt chizigʻi, olti nuqta. Har bir nuqta ustida yosh, ostida qisqa yozuv.
+Vertikal vaqt chizigʻi, yuqoridan pastga olti nuqta. Chiziq chap tomonda, har bir nuqta yonida yosh (qalin), undan oʻngda qisqa yozuv. Tavsiya etilgan oʻlcham: 800×860.
 
 | Yosh (uz) | Yozuv (uz) | Yosh (ru) | Yozuv (ru) |
 |---|---|---|---|
@@ -186,4 +190,4 @@ Gorizontal vaqt chizigʻi, olti nuqta. Har bir nuqta ustida yosh, ostida qisqa y
 2. Commit qilib `main` ga push qiling yoki fayllarni suhbatga yuboring.
 3. Shundan keyin rasmlar saytning `uploads` papkasiga koʻchiriladi va maqola matnidagi yuqorida koʻrsatilgan joylarga alt matni bilan qoʻyiladi (oʻzbekcha sahifaga `-uz`, ruscha sahifaga `-ru` varianti).
 
-Qabul qilish mezoni: yozuvlar aynan jadvaldagidek; imlo xatosi yoʻq; telefonda oʻqiladi; fotosuratlarda yozuv va logotip yoʻq; odamlar va moslamalar tabiiy koʻrinadi.
+Qabul qilish mezoni: yozuvlar aynan jadvaldagidek; imlo xatosi yoʻq; sxema 340 piksel kenglikka kichraytirilganda ham yozuvlar oʻqiladi; fotosuratlarda yozuv va logotip yoʻq; odamlar va moslamalar tabiiy koʻrinadi.
