@@ -11,12 +11,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Check, FileText, Headphones, Minus, Play, Plus, User, Volume2, VolumeX } from 'lucide-react';
+import { Check, FileText, Minus, Play, Plus, User } from 'lucide-react';
 import { getLocaleFromDOM } from '@/lib/locale-client';
 import { TonePlayer, type Ear } from '@/lib/hearing-test/tone-player';
 import { MAX_STEP, MIN_STEP, TEST_FREQUENCIES, levelForStep } from '@/lib/hearing-test/levels';
 import { summarizeTest, type Conclusion, type EarResult, type TestSummary } from '@/lib/hearing-test/interpret';
-import { EarArt, EarBackground, EarIcon, EarWaveArt } from './hearing-test-art';
+import { EarArt, EarBackground, EarIcon, EarWaveArt, HeadphonesIcon, QuietPlaceIcon, VolumeIcon } from './hearing-test-art';
 import { toneTestTexts, type Headline } from './tone-test-texts';
 
 type Step = 'intro' | 'setup' | 'ready' | 'tone' | 'results';
@@ -255,9 +255,9 @@ export default function ToneTest() {
     'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-accent text-white transition hover:opacity-90 disabled:opacity-30';
 
   const setupIcons = [
-    <VolumeX key="quiet" className="h-9 w-9" strokeWidth={1.5} />,
-    <Volume2 key="volume" className="h-9 w-9" strokeWidth={1.5} />,
-    <Headphones key="headphones" className="h-9 w-9" strokeWidth={1.5} />,
+    <QuietPlaceIcon key="quiet" className="h-10 w-10" />,
+    <VolumeIcon key="volume" className="h-10 w-10" />,
+    <HeadphonesIcon key="headphones" className="h-10 w-10" />,
   ];
   const sliderPercent = ((value - MIN_STEP) / (MAX_STEP - MIN_STEP)) * 100;
 
@@ -461,7 +461,7 @@ export default function ToneTest() {
             <div className="mx-auto mt-10 grid max-w-3xl overflow-hidden rounded-2xl bg-white text-left shadow-sm ring-1 ring-foreground/10 md:grid-cols-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://a.acoustic.uz/uploads/maqola-keksalar-moslama-korsatish.webp"
+                src="/hearing-test/natija-qabul.webp"
                 alt=""
                 className="h-48 w-full object-cover md:h-full"
                 loading="lazy"
