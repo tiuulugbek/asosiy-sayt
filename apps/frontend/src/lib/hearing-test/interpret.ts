@@ -4,8 +4,8 @@
  * MUHIM: uydagi naushnik va telefon kalibrlanmagan, shuning uchun bu yerdagi dB qiymatlari taxminiy.
  * Natija tashxis emas: u faqat "tekshirtirish kerakmi" degan savolga yoʻnalish beradi.
  */
-import type { ProcedureOutcome, TestFrequency } from './threshold-procedure';
-import { LEVEL_MAX, TEST_FREQUENCIES } from './threshold-procedure';
+import type { TestFrequency } from './levels';
+import { LEVEL_MAX, TEST_FREQUENCIES } from './levels';
 
 /**
  * Faraz: qurilma ovozi maksimal boʻlganda 0 dBFS taxminan shu bosimni beradi (dB SPL).
@@ -24,15 +24,12 @@ const REFERENCE_THRESHOLD_SPL: Record<TestFrequency, number> = {
 
 export interface FrequencyResult {
   frequency: TestFrequency;
-  /** Boʻsagʻa, dBFS. null — eng baland darajada ham eshitilmadi. */
+  /** Tovush zoʻrgʻa eshitilgan daraja, dBFS. null — eng baland darajada ham eshitilmadi. */
   threshold: number | null;
-  outcome: ProcedureOutcome;
 }
 
 export interface EarResult {
   frequencies: FrequencyResult[];
-  /** Ton berilmagan paytda bosilgan tugmalar soni. */
-  falseAlarms: number;
 }
 
 export type Conclusion = 'no-signs' | 'check-recommended' | 'check-needed';
@@ -49,8 +46,6 @@ export interface TestSummary {
   conclusion: Conclusion;
   /** Quloqlar orasida sezilarli farq bor. */
   asymmetry: boolean;
-  /** Javoblar barqaror emas: natijaga ehtiyotkorlik bilan qarash kerak. */
-  lowReliability: boolean;
 }
 
 const NO_SIGNS_MAX_AVERAGE = 30;
@@ -74,7 +69,7 @@ export function summarizeEar(ear: EarResult): EarSummary {
     return estimateHearingLevel(frequency, result ? result.threshold : null);
   });
   const average = levels.reduce((sum, value) => sum + value, 0) / levels.length;
-  const notHeard = ear.frequencies.some((f) => f.outcome === 'not-heard');
+  const notHeard = ear.frequencies.some((f) => f.threshold === null);
 
   let conclusion: Conclusion = 'no-signs';
   if (average > NO_SIGNS_MAX_AVERAGE || levels.some((value) => value > SINGLE_FREQUENCY_FLAG)) {
@@ -94,8 +89,5 @@ export function summarizeTest(left: EarResult, right: EarResult): TestSummary {
   let conclusion = worst(leftSummary.conclusion, rightSummary.conclusion);
   if (asymmetry) conclusion = worst(conclusion, 'check-recommended');
 
-  const unstable = [...left.frequencies, ...right.frequencies].filter((f) => f.outcome === 'unstable').length;
-  const lowReliability = unstable >= 2 || left.falseAlarms + right.falseAlarms >= 6;
-
-  return { left: leftSummary, right: rightSummary, conclusion, asymmetry, lowReliability };
+  return { left: leftSummary, right: rightSummary, conclusion, asymmetry };
 }
