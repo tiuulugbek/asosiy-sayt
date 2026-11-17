@@ -44,12 +44,16 @@ function findLeadImage(...bodies: string[]): string | null {
   return null;
 }
 
-function withLeadImage(body: string, imageTag: string | null, alt: string): string {
+function withLeadImage(body: string, imageTag: string | null, alt: string, keepExistingAlt: boolean): string {
   if (!imageTag) return body;
   const safeAlt = alt.replace(/"/g, '&quot;');
-  const tag = /\salt\s*=/i.test(imageTag)
-    ? imageTag.replace(/\salt\s*=\s*(["'])[^"']*\1/i, ` alt="${safeAlt}"`)
-    : imageTag.replace(/<img/i, `<img alt="${safeAlt}"`);
+  const altPattern = /\salt\s*=\s*(?:"[^"]*"|'[^']*')/i;
+  let tag = imageTag;
+  if (!altPattern.test(tag)) {
+    tag = tag.replace(/<img/i, `<img alt="${safeAlt}"`);
+  } else if (!keepExistingAlt) {
+    tag = tag.replace(altPattern, ` alt="${safeAlt}"`);
+  }
   return `<p>${tag}</p>\n${body}`;
 }
 
@@ -85,8 +89,8 @@ async function main() {
       before[field] = (post as Record<string, unknown>)[field];
     }
     const leadImage = findLeadImage(String(post.body_uz || ''), String(post.body_ru || ''));
-    const bodyUz = withLeadImage(item.body_uz, leadImage, item.image_alt_uz || item.title_uz);
-    const bodyRu = withLeadImage(item.body_ru, leadImage, item.image_alt_ru || item.title_ru);
+    const bodyUz = withLeadImage(item.body_uz, leadImage, item.image_alt_uz || item.title_uz, true);
+    const bodyRu = withLeadImage(item.body_ru, leadImage, item.image_alt_ru || item.title_ru, false);
     found.push({ item, before, bodyUz, bodyRu });
     const oldUz = String(post.body_uz || '').length;
     const oldRu = String(post.body_ru || '').length;
